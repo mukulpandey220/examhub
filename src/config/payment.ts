@@ -3,10 +3,11 @@
  * Official Razorpay Payment Page: https://rzp.io/rzp/CkGK3Dv
  * Title: NTCRA REGISTRATION by Nyeras
  * Amount: ₹99 (9900 paise)
+ *
+ * This URL is fixed. Checkout must open this page, not a newly created payment link.
  */
 
-export const OFFICIAL_RAZORPAY_PAYMENT_URL =
-  process.env.NEXT_PUBLIC_RAZORPAY_PAYMENT_URL || "https://rzp.io/rzp/CkGK3Dv";
+export const OFFICIAL_RAZORPAY_PAYMENT_URL = "https://rzp.io/rzp/CkGK3Dv";
 
 export const RAZORPAY_DISPLAY_URL = "rzp.io/rzp/CkGK3Dv";
 

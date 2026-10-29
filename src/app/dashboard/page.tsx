@@ -36,22 +36,6 @@ import { CATEGORIES } from "@/data/categories";
 import { categoryIcon } from "@/lib/category-icons";
 import { TokenTransaction } from "@/types";
 import { executeAutomatedRazorpayPayment } from "@/lib/razorpay";
-import confetti from "canvas-confetti";
-
-// Dynamic script helper for Razorpay standard checkout
-function loadRazorpayScript(): Promise<boolean> {
-  return new Promise((resolve) => {
-    if (typeof window === "undefined") return resolve(false);
-    if ((window as any).Razorpay) return resolve(true);
-
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.async = true;
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
-}
 
 export default function StudentDashboardPage() {
   const [user, setUser] = useState<any>({
@@ -195,28 +179,18 @@ export default function StudentDashboardPage() {
       if (data.tokenTransactions) setTokenTransactions(data.tokenTransactions);
       if (data.entitlements) setEntitlements(data.entitlements);
 
-      // 2. Also run verify-payment check to catch any unprocessed payments
-      const verifyRes = await fetch("/api/checkout/verify-payment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: user.id || "user-student-ramkumar",
-          tokenCount: 99,
-          amountRupees: 99,
-          paymentId: `pay_auto_sync_${Date.now()}`,
-          isTestModeApproved: true,
-        }),
-      });
-      const verifyData = await verifyRes.json();
-      if (verifyData.success) {
-        setUserTokens(verifyData.tokenBalance);
-        if (verifyData.transaction) {
-          setTokenTransactions(prev => [verifyData.transaction, ...prev]);
-        }
-        setPaymentMessage(`Auto-sync verified! Credited ${verifyData.tokensAdded} tokens to your account.`);
-        try { confetti({ particleCount: 80, spread: 60 }); } catch (e) {}
+      const statusRes = await fetch("/api/checkout/payment-status");
+      const statusData = await statusRes.json();
+      if (statusData.paid) {
+        const refresh = await fetch(`/api/auth?userId=${user.id || "user-student-ramkumar"}`);
+        const refreshed = await refresh.json();
+        if (refreshed.tokens !== undefined) setUserTokens(refreshed.tokens);
+        if (refreshed.unlockedExams) setUnlockedExamIds(refreshed.unlockedExams);
+        if (refreshed.tokenTransactions) setTokenTransactions(refreshed.tokenTransactions);
+        if (refreshed.entitlements) setEntitlements(refreshed.entitlements);
+        setPaymentMessage(statusData.message || "Payment verified.");
       } else {
-        setPaymentMessage("Account synchronized. All tokens and exam entitlements are up-to-date.");
+        setPaymentMessage(statusData.message || "No verified payment yet. Access has not been granted.");
       }
     } catch (err: any) {
       setPaymentMessage("Failed to sync status. Please check your connection.");
@@ -242,8 +216,7 @@ export default function StudentDashboardPage() {
         if (result.transaction) {
           setTokenTransactions(prev => [result.transaction, ...prev]);
         }
-        setPaymentMessage(`Payment successful! Automatically credited ${result.tokensAdded} tokens.`);
-        try { confetti({ particleCount: 100, spread: 70 }); } catch (e) {}
+        setPaymentMessage(result.message || "No payment was required.");
       },
       onError: (err) => {
         setPaymentLoading(false);
@@ -257,102 +230,22 @@ export default function StudentDashboardPage() {
 
   // Launch Razorpay Checkout for Buying Tokens (1 Rs = 1 Token)
   const handlePurchaseTokens = async () => {
-    const tokenAmount = customTokenInput ? Math.max(1, parseInt(customTokenInput) || 1) : selectedTopUpTokens;
     setTopUpLoading(true);
-    setTopUpMessage("");
+    setTopUpMessage("Opening the ₹99 Razorpay page. Tokens are added only after payment is verified.");
 
     try {
-      // 1. Create order for tokens (1 Rs = 1 Token)
-      const res = await fetch("/api/checkout/create-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tokenCount: tokenAmount,
-          userId: user.id || "user-student-ramkumar",
-          userEmail: user.email || "ramkumar.malothu@nyeras.com",
-        })
+      await executeAutomatedRazorpayPayment({
+        userId: user.id || "user-student-ramkumar",
+        userName: user.name || "Ramkumar Malothu",
+        userEmail: user.email || "ramkumar.malothu@nyeras.com",
+        description: "NTCRA Pass: Full Access + 99 Tokens (₹1 = 1 Token)",
+        onError: (err) => {
+          setTopUpLoading(false);
+          setTopUpMessage(err || "Could not open the Razorpay payment page.");
+        },
       });
-
-      const orderData = await res.json();
-      if (!res.ok) throw new Error(orderData.error || "Failed to initialize order");
-
-      // 2. Try standard Razorpay checkout modal
-      const scriptLoaded = await loadRazorpayScript();
-      if (scriptLoaded && (window as any).Razorpay && orderData.keyId && !orderData.keyId.includes("demo")) {
-        const options = {
-          key: orderData.keyId,
-          amount: orderData.amountPaise,
-          currency: "INR",
-          name: "Exam Hub & Assessment Portal",
-          description: `Token Wallet Top Up: ${tokenAmount} Tokens (₹1 = 1 Token)`,
-          order_id: orderData.orderId.startsWith("order_") && !orderData.orderId.includes("test") ? orderData.orderId : undefined,
-          prefill: {
-            name: user.name,
-            email: user.email,
-          },
-          theme: {
-            color: "#2563eb",
-          },
-          handler: async function (response: any) {
-            await verifyTokenTopUp(tokenAmount, response.razorpay_payment_id, orderData.orderId, response.razorpay_signature);
-          },
-          modal: {
-            ondismiss: function () {
-              setTopUpLoading(false);
-            }
-          }
-        };
-
-        const rzpInstance = new (window as any).Razorpay(options);
-        rzpInstance.open();
-      } else {
-        // Fallback / instant authenticated verification in test mode
-        await verifyTokenTopUp(tokenAmount, `pay_rzp_wallet_${Date.now()}`, orderData.orderId);
-      }
     } catch (err: any) {
-      setTopUpMessage(err.message || "Failed to process token purchase.");
-      setTopUpLoading(false);
-    }
-  };
-
-  const verifyTokenTopUp = async (tokenAmount: number, paymentId: string, orderId: string, signature?: string) => {
-    try {
-      const res = await fetch("/api/checkout/verify-payment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tokenCount: tokenAmount,
-          userId: user.id || "user-student-ramkumar",
-          paymentId,
-          orderId,
-          signature,
-          isTestModeApproved: true,
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to authenticate payment");
-
-      setUserTokens(data.tokenBalance);
-      if (data.transaction) {
-        setTokenTransactions([data.transaction, ...tokenTransactions]);
-      }
-
-      setTopUpMessage(`Success! Credited ${data.tokensAdded} tokens to your dashboard (₹1 = 1 Token).`);
-      
-      if (typeof window !== "undefined") {
-        const updated = { ...user, tokens: data.tokenBalance };
-        localStorage.setItem("campus_radar_user", JSON.stringify(updated));
-        setUser(updated);
-      }
-
-      setTimeout(() => {
-        setShowTopUpModal(false);
-        setTopUpMessage("");
-        setTopUpLoading(false);
-      }, 1500);
-    } catch (err: any) {
-      setTopUpMessage(err.message || "Verification failed");
+      setTopUpMessage(err.message || "Could not open the Razorpay payment page.");
       setTopUpLoading(false);
     }
   };
@@ -835,21 +728,17 @@ export default function StudentDashboardPage() {
 
             <div className="space-y-1.5 rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-sm">
               <div className="flex justify-between text-slate-600">
-                <span>Tokens you get</span>
-                <span className="font-semibold text-electric-600">
-                  +{customTokenInput ? parseInt(customTokenInput) || 0 : selectedTopUpTokens}
-                </span>
+                <span>Tokens after verified payment</span>
+                <span className="font-semibold text-electric-600">+99</span>
               </div>
               <div className="flex justify-between text-slate-600">
-                <span>Total payable</span>
-                <span className="font-semibold text-slate-900">
-                  ₹{customTokenInput ? parseInt(customTokenInput) || 0 : selectedTopUpTokens}
-                </span>
+                <span>Razorpay page</span>
+                <span className="font-semibold text-slate-900">₹99</span>
               </div>
             </div>
 
             {topUpMessage && (
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-700">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-medium text-slate-700">
                 {topUpMessage}
               </div>
             )}
@@ -862,7 +751,7 @@ export default function StudentDashboardPage() {
                 className="btn btn-primary w-full py-3"
               >
                 <CreditCard className="h-4 w-4" />
-                {topUpLoading ? "Processing…" : `Pay ₹${customTokenInput || selectedTopUpTokens}`}
+                {topUpLoading ? "Opening Razorpay…" : "Pay on Razorpay · ₹99"}
               </button>
               <button
                 type="button"

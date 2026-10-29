@@ -15,7 +15,6 @@ import {
   BookOpen,
   CreditCard,
   Lock,
-  ExternalLink,
   Check,
   Coins,
   Sparkles,
@@ -24,24 +23,8 @@ import {
   RotateCcw
 } from "lucide-react";
 import { INITIAL_EXAMS, getExamById } from "@/data/exams";
-import { OFFICIAL_RAZORPAY_PAYMENT_URL, RAZORPAY_DISPLAY_URL } from "@/config/payment";
+import { RAZORPAY_DISPLAY_URL } from "@/config/payment";
 import { executeAutomatedRazorpayPayment } from "@/lib/razorpay";
-import confetti from "canvas-confetti";
-
-// Dynamic script helper for Razorpay standard checkout
-function loadRazorpayScript(): Promise<boolean> {
-  return new Promise((resolve) => {
-    if (typeof window === "undefined") return resolve(false);
-    if ((window as any).Razorpay) return resolve(true);
-
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.async = true;
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
-}
 
 export default function ExamInstructionsPage({ params }: { params: { examId: string } }) {
   const router = useRouter();
@@ -57,7 +40,6 @@ export default function ExamInstructionsPage({ params }: { params: { examId: str
 
   const [userTokens, setUserTokens] = useState<number>(100);
   const [isUnlocked, setIsUnlocked] = useState<boolean>(exam.isFreeSample);
-  const [paymentRefInput, setPaymentRefInput] = useState<string>("");
   const [unlockLoading, setUnlockLoading] = useState<boolean>(false);
   const [unlockSuccess, setUnlockSuccess] = useState<string>("");
 
@@ -77,7 +59,6 @@ export default function ExamInstructionsPage({ params }: { params: { examId: str
   // Razorpay order state
   const [isRazorpayPaying, setIsRazorpayPaying] = useState<boolean>(false);
   const [showPaymentModal, setShowPaymentModal] = useState<boolean>(false);
-  const [pendingOrder, setPendingOrder] = useState<any>(null);
 
   const fetchAttemptStatus = async (uid: string) => {
     try {
@@ -170,110 +151,29 @@ export default function ExamInstructionsPage({ params }: { params: { examId: str
     }
   };
 
-  // Launch Razorpay Payment for this specific Exam Fee
   const handleInitiateRazorpay = async () => {
     setIsRazorpayPaying(true);
     setError("");
     setUnlockSuccess("");
 
     try {
-      // 1. Create order for exact exam fee (1 Rs = 1 Token)
-      const res = await fetch("/api/checkout/create-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          examId: exam.id,
-          userId: user.id || "user-student-ramkumar",
-          userEmail: user.email || "ramkumar.malothu@nyeras.com",
-        })
+      await executeAutomatedRazorpayPayment({
+        examId: exam.id,
+        userId: user.id || "user-student-ramkumar",
+        userName: user.name || "Ramkumar Malothu",
+        userEmail: user.email || "ramkumar.malothu@nyeras.com",
+        description: `Exam fee: ${exam.title}`,
+        onSuccess: () => {
+          setIsRazorpayPaying(false);
+        },
+        onError: (message) => {
+          setIsRazorpayPaying(false);
+          setError(message);
+        },
       });
-
-      const orderData = await res.json();
-      if (!res.ok) {
-        throw new Error(orderData.error || "Failed to create payment order.");
-      }
-
-      setPendingOrder(orderData);
-
-      // 2. Try standard Razorpay checkout modal
-      const scriptLoaded = await loadRazorpayScript();
-      if (scriptLoaded && (window as any).Razorpay && orderData.keyId && !orderData.keyId.includes("demo")) {
-        const options = {
-          key: orderData.keyId,
-          amount: orderData.amountPaise,
-          currency: "INR",
-          name: "Exam Hub & Assessment Portal",
-          description: `Exam Fee: ${exam.title} (${examFee} Tokens)`,
-          image: "https://nyeras.com/favicon.ico",
-          order_id: orderData.orderId.startsWith("order_") && !orderData.orderId.includes("test") ? orderData.orderId : undefined,
-          prefill: {
-            name: user.name || "Student",
-            email: user.email || "student@campusradar.edu.in",
-          },
-          theme: {
-            color: "#2563eb",
-          },
-          handler: async function (response: any) {
-            await handleVerifyPayment(response.razorpay_payment_id, orderData.orderId, response.razorpay_signature);
-          },
-          modal: {
-            ondismiss: function () {
-              setIsRazorpayPaying(false);
-            }
-          }
-        };
-
-        const rzpInstance = new (window as any).Razorpay(options);
-        rzpInstance.open();
-      } else {
-        // Show inline authenticated verification modal
-        setShowPaymentModal(true);
-      }
     } catch (err: any) {
-      setError(err.message || "Could not launch Razorpay gateway.");
-    } finally {
+      setError(err.message || "Could not open the Razorpay payment page.");
       setIsRazorpayPaying(false);
-    }
-  };
-
-  // Complete Payment Verification (Credits tokens to dashboard & unlocks exam)
-  const handleVerifyPayment = async (paymentId?: string, orderId?: string, signature?: string) => {
-    setUnlockLoading(true);
-    setError("");
-
-    try {
-      const res = await fetch("/api/checkout/verify-payment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          examId: exam.id,
-          userId: user.id || "user-student-ramkumar",
-          paymentId: paymentId || paymentRefInput.trim() || `pay_rzp_${Date.now()}`,
-          orderId: orderId || pendingOrder?.orderId || `order_${Date.now()}`,
-          signature: signature || undefined,
-          isTestModeApproved: true,
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Payment authentication failed.");
-      }
-
-      setIsUnlocked(true);
-      setUserTokens(data.tokenBalance);
-      setShowPaymentModal(false);
-      setUnlockSuccess(`Payment Authenticated! Added ${data.tokensAdded} tokens to your dashboard (1 Rs = 1 Token) and unlocked ${exam.title}.`);
-
-      if (typeof window !== "undefined") {
-        const updated = { ...user, tokens: data.tokenBalance };
-        localStorage.setItem("campus_radar_user", JSON.stringify(updated));
-        setUser(updated);
-      }
-    } catch (err: any) {
-      setError(err.message || "Failed to verify payment.");
-    } finally {
-      setUnlockLoading(false);
     }
   };
 
@@ -688,23 +588,17 @@ export default function ExamInstructionsPage({ params }: { params: { examId: str
             <div className="flex flex-col gap-2">
               <button
                 type="button"
-                disabled={unlockLoading}
-                onClick={() => handleVerifyPayment(`pay_rzp_auto_${Date.now()}`)}
+                disabled={isRazorpayPaying}
+                onClick={handleInitiateRazorpay}
                 className="btn btn-primary w-full py-3"
               >
                 <Check className="h-4 w-4" />
-                {unlockLoading ? "Verifying…" : `Pay ₹${examFee}`}
+                {isRazorpayPaying ? "Opening Razorpay…" : "Pay on Razorpay · ₹99"}
               </button>
 
-              <a
-                href={OFFICIAL_RAZORPAY_PAYMENT_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn btn-secondary w-full"
-              >
-                Open Razorpay page
-                <ExternalLink className="h-3.5 w-3.5" />
-              </a>
+              <p className="text-center text-xs text-slate-500">
+                Opens {RAZORPAY_DISPLAY_URL}. The exam stays locked until the server verifies payment.
+              </p>
 
               <button type="button" onClick={() => setShowPaymentModal(false)} className="btn btn-ghost w-full">
                 Cancel

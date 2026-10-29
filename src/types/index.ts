@@ -317,6 +317,27 @@ export interface TokenTransaction {
   createdAt: string;
 }
 
+export type PaymentIntentStatus = "pending" | "paid" | "failed" | "cancelled" | "mismatch";
+
+export interface PaymentIntent {
+  id: string;
+  userId: string;
+  userEmail: string;
+  amountPaise: number;
+  currency: "INR";
+  status: PaymentIntentStatus;
+  purpose: "ntcra_pass" | "exam" | "plan" | "tokens";
+  planId?: string;
+  examId?: string;
+  paymentId?: string;
+  paymentLinkId?: string;
+  referenceId?: string;
+  failureReason?: string;
+  createdAt: string;
+  updatedAt: string;
+  paidAt?: string;
+}
+
 // =========================================================================
 // SECTION 24: AI-ASSISTED PROCTORING & INTEGRITY SUBSYSTEM CONTRACTS
 // =========================================================================

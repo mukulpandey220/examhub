@@ -2,34 +2,30 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPlanById } from "@/data/pricing";
 import { db } from "@/lib/db";
 import { getExamById as getInitialExamById } from "@/data/exams";
-import { OFFICIAL_RAZORPAY_PAYMENT_URL } from "@/config/payment";
+import { OFFICIAL_RAZORPAY_PAYMENT_URL, PAYMENT_CONFIG } from "@/config/payment";
+import { EXPECTED_AMOUNT_PAISE, PAYMENT_INTENT_COOKIE } from "@/lib/payments/razorpay-link";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { 
-      examId, 
-      tokenCount, 
-      amountRupees: customRupees, 
-      planId, 
-      userId = "user-student-ramkumar", 
-      userEmail = "ramkumar.malothu@nyeras.com" 
+    const {
+      examId,
+      planId,
+      userId = "user-student-ramkumar",
+      userEmail = "ramkumar.malothu@nyeras.com",
     } = body;
 
-    let orderId = "";
-    let amountRupees = 0;
-    let tokenCountCalculated = 0;
-    let description = "";
-    let examData: any = null;
-    let planData: any = null;
+    let purpose: "ntcra_pass" | "exam" | "plan" | "tokens" = "ntcra_pass";
+    let resolvedExamId: string | undefined;
+    let resolvedPlanId: string | undefined;
 
-    // 1. Exam Fee Mode (Price dynamically regarding the exam fee, 1 Rs = 1 Token)
     if (examId) {
-      examData = db.getExamById(examId) || getInitialExamById(examId);
+      const examData = db.getExamById(examId) || getInitialExamById(examId);
       if (!examData) {
         return NextResponse.json({ error: "Examination not found" }, { status: 404 });
       }
-
       if (examData.isFreeSample || (examData.feeRupees === 0 && examData.tokenFee === 0)) {
         return NextResponse.json({
           orderId: `order_free_${Date.now()}`,
@@ -41,33 +37,17 @@ export async function POST(req: NextRequest) {
           examTitle: examData.title,
           isFree: true,
           mode: "free_access",
+          portalUrl: null,
         });
       }
-
-      amountRupees = examData.feeRupees ?? examData.tokenFee ?? 99;
-      tokenCountCalculated = amountRupees; // Strict 1 Rs = 1 Token parity
-      description = `Exam Fee: ${examData.title} (${amountRupees} Tokens @ ₹1/token)`;
-      orderId = `order_exam_${examData.id.replace(/[^a-zA-Z0-9_-]/g, '')}_${Date.now()}`;
-    }
-    // 2. Direct Token Wallet Top-up (1 Rs = 1 Token)
-    else if (tokenCount || customRupees) {
-      const requested = Number(tokenCount || customRupees);
-      if (isNaN(requested) || requested <= 0) {
-        return NextResponse.json({ error: "Invalid token or amount value" }, { status: 400 });
-      }
-      amountRupees = Math.round(requested);
-      tokenCountCalculated = amountRupees; // Strict 1 Rs = 1 Token parity
-      description = `Dashboard Token Wallet Top Up: ${tokenCountCalculated} Tokens (₹1 = 1 Token)`;
-      orderId = `order_token_${tokenCountCalculated}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-    }
-    // 3. Subscription Plan Mode
-    else if (planId) {
-      planData = getPlanById(planId);
+      purpose = "exam";
+      resolvedExamId = examData.id;
+    } else if (planId) {
+      const planData = getPlanById(planId);
       if (!planData) {
         return NextResponse.json({ error: "Invalid pricing plan selected" }, { status: 404 });
       }
-
-      if (planData.tier === "free") {
+      if (planData.tier === "free" || planData.priceRupees === 0) {
         return NextResponse.json({
           orderId: `order_free_${Date.now()}`,
           amountPaise: 0,
@@ -77,80 +57,50 @@ export async function POST(req: NextRequest) {
           plan: planData,
           isFree: true,
           mode: "free_access",
+          portalUrl: null,
         });
       }
-
-      amountRupees = planData.priceRupees;
-      tokenCountCalculated = amountRupees;
-      description = `${planData.name} (${planData.durationLabel})`;
-      orderId = `order_${planData.tier}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    } else {
-      // Default to NTCRA National Pass registration (₹99 / 99 tokens)
-      amountRupees = 99;
-      tokenCountCalculated = 99;
-      description = "NTCRA Registration Pass (99 Tokens @ ₹1/token)";
-      orderId = `order_ntcra_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      purpose = "plan";
+      resolvedPlanId = planData.id;
+    } else if (body.tokenCount || body.amountRupees) {
+      purpose = "tokens";
     }
 
-    // Strict integer paise representation (₹1 = 1 Token = 100 Paise)
-    const amountPaise = amountRupees * 100;
-
-    // Check if live Razorpay keys are configured
-    const rzpKey = process.env.RAZORPAY_KEY_ID;
-    const rzpSecret = process.env.RAZORPAY_KEY_SECRET;
-    const isLiveGateway = !!rzpKey && rzpKey !== "rzp_test_exampleKey123" && !rzpKey.includes("demo") && !!rzpSecret;
-
-    let liveOrderId = orderId;
-    if (isLiveGateway) {
-      try {
-        const authHeader = "Basic " + Buffer.from(`${rzpKey}:${rzpSecret}`).toString("base64");
-        const rzpRes = await fetch("https://api.razorpay.com/v1/orders", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: authHeader,
-          },
-          body: JSON.stringify({
-            amount: amountPaise,
-            currency: "INR",
-            receipt: orderId.substring(0, 40),
-            notes: {
-              userId,
-              examId: examData?.id || "",
-              tokenCount: tokenCountCalculated,
-            }
-          }),
-        });
-
-        if (rzpRes.ok) {
-          const rzpData = await rzpRes.json();
-          if (rzpData.id) {
-            liveOrderId = rzpData.id;
-          }
-        }
-      } catch (err) {
-        // Fallback to deterministic receipt id
-      }
-    }
-
-    return NextResponse.json({
-      orderId: liveOrderId,
-      amountPaise,
-      amountRupees,
-      tokenCount: tokenCountCalculated,
-      tokenRate: "1 INR = 1 Token",
+    const intent = db.createPaymentIntent({
+      userId: String(userId),
+      userEmail: String(userEmail),
+      amountPaise: EXPECTED_AMOUNT_PAISE,
       currency: "INR",
-      description,
-      examId: examData?.id,
-      examTitle: examData?.title,
-      planId: planData?.id,
-      planName: planData?.name,
-      isLiveGateway,
-      mode: isLiveGateway ? "live" : "test_mode",
-      keyId: rzpKey || "rzp_test_demo_mode",
+      purpose,
+      planId: resolvedPlanId,
+      examId: resolvedExamId,
+    });
+
+    const response = NextResponse.json({
+      orderId: intent.id,
+      amountPaise: EXPECTED_AMOUNT_PAISE,
+      amountRupees: PAYMENT_CONFIG.amountRupees,
+      tokenCount: PAYMENT_CONFIG.amountRupees,
+      tokenRate: PAYMENT_CONFIG.tokenRate,
+      currency: "INR",
+      description: `${PAYMENT_CONFIG.title} via ${OFFICIAL_RAZORPAY_PAYMENT_URL}`,
+      examId: resolvedExamId,
+      planId: resolvedPlanId,
+      status: "pending",
+      mode: "payment_link",
       portalUrl: OFFICIAL_RAZORPAY_PAYMENT_URL,
     });
+
+    response.cookies.set(PAYMENT_INTENT_COOKIE, intent.id, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 60 * 60 * 6,
+    });
+
+    return response;
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: err.message || "Failed to start checkout" }, { status: 500 });
   }
 }

@@ -6,6 +6,7 @@ import { Footer } from "@/components/Footer";
 import { FloatingFullscreenButton } from "@/components/FloatingFullscreenButton";
 import { PageMain } from "@/components/PageMain";
 import { NavigationProgress } from "@/components/NavigationProgress";
+import { PointerGlow } from "@/components/PointerGlow";
 
 /* Body / UI text */
 const inter = Inter({
@@ -26,7 +27,7 @@ export const viewport: Viewport = {
   maximumScale: 5,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: light)", color: "#f4f7f5" },
     { media: "(prefers-color-scheme: dark)", color: "#000000" },
   ],
 };
@@ -71,6 +72,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col text-slate-900 antialiased font-sans">
         <a href="#main-content" className="skip-link">Skip to content</a>
+        <PointerGlow />
         <NavigationProgress />
         <Navbar />
         <PageMain>{children}</PageMain>

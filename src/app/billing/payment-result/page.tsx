@@ -5,12 +5,13 @@ import {
   XCircle, 
   Clock, 
   ArrowRight, 
-  Receipt, 
   ShieldCheck, 
-  Layers,
   RotateCcw
 } from "lucide-react";
-import { getPlanById } from "@/data/pricing";
+import { db } from "@/lib/db";
+import { PAYMENT_CONFIG } from "@/config/payment";
+
+export const dynamic = "force-dynamic";
 
 export default function PaymentResultPage({
   searchParams,
@@ -23,21 +24,17 @@ export default function PaymentResultPage({
     paymentRef?: string;
   };
 }) {
-  const status = searchParams.status || "success";
-  const orderId = searchParams.orderId || `order_${Date.now()}`;
-  const planId = searchParams.planId || "plan-seven-day";
-  const amount = searchParams.amount || "29";
-  const paymentRef = searchParams.paymentRef || `pay_${Date.now()}`;
-
-  const plan = getPlanById(planId);
-  const isSuccess = status === "success";
-  const isPending = status === "pending";
+  const order = searchParams.orderId ? db.getPaymentIntent(searchParams.orderId) : undefined;
+  const isSuccess = order?.status === "paid";
+  const isPending = order?.status === "pending";
+  const orderId = order?.id || "No verified order";
+  const paymentRef = isSuccess ? (order?.paymentId || "Verified") : "Not verified";
+  const amount = isSuccess ? String(PAYMENT_CONFIG.amountRupees) : "—";
 
   return (
     <div className="flex flex-1 items-center justify-center px-4 py-12 sm:px-6 lg:px-8">
       <div className="w-full max-w-lg space-y-6 rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-soft-lg animate-scale-in">
 
-        {/* Status icon */}
         <div
           className={`mx-auto flex h-16 w-16 items-center justify-center rounded-3xl ${
             isSuccess
@@ -58,18 +55,17 @@ export default function PaymentResultPage({
 
         <div className="space-y-1">
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-            {isSuccess ? "Payment successful" : isPending ? "Payment pending" : "Payment failed"}
+            {isSuccess ? "Payment verified" : isPending ? "Payment pending" : "Payment not confirmed"}
           </h1>
           <p className="text-sm text-slate-500">
             {isSuccess
-              ? "Your plan is now active."
+              ? "Razorpay confirmed this payment. Your access is active."
               : isPending
-              ? "Waiting for final confirmation from the payment gateway."
-              : "No money was taken. Please try again with another payment method."}
+              ? "This checkout is still waiting for Razorpay. Access has not been granted."
+              : "This page does not grant access unless the server has a verified payment for the order."}
           </p>
         </div>
 
-        {/* Receipt */}
         <div className="space-y-2.5 rounded-2xl border border-slate-100 bg-slate-50 p-5 text-left text-sm">
           <div className="flex justify-between gap-4">
             <span className="text-slate-500">Order</span>
@@ -80,22 +76,17 @@ export default function PaymentResultPage({
             <span className="break-all text-right font-medium text-slate-800">{paymentRef}</span>
           </div>
           <div className="flex justify-between gap-4">
-            <span className="text-slate-500">Plan</span>
-            <span className="font-medium text-electric-600">{plan?.name || "Sprint Pass"}</span>
-          </div>
-          <div className="flex justify-between gap-4">
             <span className="text-slate-500">Amount</span>
-            <span className="font-semibold text-slate-900">₹{amount}</span>
+            <span className="font-semibold text-slate-900">{amount === "—" ? amount : `₹${amount}`}</span>
           </div>
           {isSuccess && (
             <div className="flex justify-between gap-4 border-t border-slate-200 pt-2.5">
               <span className="text-slate-500">Access</span>
-              <span className="font-semibold text-emerald-600">Active · all domains</span>
+              <span className="font-semibold text-emerald-600">Active</span>
             </div>
           )}
         </div>
 
-        {/* Actions */}
         <div className="flex flex-col items-center justify-center gap-3 pt-1 sm:flex-row">
           {isSuccess ? (
             <>
@@ -109,15 +100,20 @@ export default function PaymentResultPage({
             </>
           ) : (
             <>
-              <Link href={`/checkout/${planId}`} className="btn btn-primary w-full sm:w-auto">
+              <Link href="/payment" className="btn btn-primary w-full sm:w-auto">
                 <RotateCcw className="h-4 w-4" />
-                Retry checkout
+                Back to payment
               </Link>
               <Link href="/contact" className="btn btn-secondary w-full sm:w-auto">
                 Contact support
               </Link>
             </>
           )}
+        </div>
+
+        <div className="flex items-center justify-center gap-1.5 text-xs text-slate-400">
+          <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+          <span>Status is read from the server, not from the page address.</span>
         </div>
       </div>
     </div>

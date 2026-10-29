@@ -10,7 +10,8 @@ import {
   DifficultyLevel,
   InstitutionalLead,
   ProctoringLog,
-  TokenTransaction
+  TokenTransaction,
+  PaymentIntent
 } from "@/types";
 import { DOMAINS } from "@/data/domains";
 import { INITIAL_EXAMS } from "@/data/exams";
@@ -79,6 +80,7 @@ class DatabaseEngine {
   private bookmarks: Record<string, string[]> = {};
   private institutionalLeads: InstitutionalLead[] = [];
   private tokenTransactions: TokenTransaction[] = [];
+  private paymentIntents: PaymentIntent[] = [];
 
   constructor() {
     this.init();
@@ -283,9 +285,11 @@ class DatabaseEngine {
         createdAt: new Date(Date.now() - 48 * 3600 * 1000).toISOString(),
       }
     ]);
+
+    this.paymentIntents = readJsonFile<PaymentIntent[]>("payment_intents.json", []);
   }
 
-  private persist(target: "questions" | "exams" | "attempts" | "entitlements" | "deadlines" | "profiles" | "bookmarks" | "institutionalLeads" | "tokenTransactions") {
+  private persist(target: "questions" | "exams" | "attempts" | "entitlements" | "deadlines" | "profiles" | "bookmarks" | "institutionalLeads" | "tokenTransactions" | "paymentIntents") {
     switch (target) {
       case "questions":
         writeJsonFile("questions.json", this.questions);
@@ -313,6 +317,9 @@ class DatabaseEngine {
         break;
       case "tokenTransactions":
         writeJsonFile("token_transactions.json", this.tokenTransactions);
+        break;
+      case "paymentIntents":
+        writeJsonFile("payment_intents.json", this.paymentIntents);
         break;
     }
   }
@@ -1063,6 +1070,67 @@ class DatabaseEngine {
     this.entitlements.push(ent);
     this.persist("entitlements");
     return ent;
+  }
+
+  public createPaymentIntent(input: {
+    userId: string;
+    userEmail: string;
+    amountPaise: number;
+    currency: "INR";
+    purpose: PaymentIntent["purpose"];
+    planId?: string;
+    examId?: string;
+  }): PaymentIntent {
+    const now = new Date().toISOString();
+    const intent: PaymentIntent = {
+      id: `ord_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`,
+      userId: input.userId,
+      userEmail: input.userEmail.trim().toLowerCase(),
+      amountPaise: input.amountPaise,
+      currency: input.currency,
+      status: "pending",
+      purpose: input.purpose,
+      planId: input.planId,
+      examId: input.examId,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.paymentIntents.unshift(intent);
+    this.persist("paymentIntents");
+    return intent;
+  }
+
+  public getPaymentIntent(id: string): PaymentIntent | undefined {
+    return this.paymentIntents.find((intent) => intent.id === id);
+  }
+
+  public updatePaymentIntent(id: string, updates: Partial<PaymentIntent>): PaymentIntent | undefined {
+    const idx = this.paymentIntents.findIndex((intent) => intent.id === id);
+    if (idx < 0) return undefined;
+    this.paymentIntents[idx] = {
+      ...this.paymentIntents[idx],
+      ...updates,
+      id: this.paymentIntents[idx].id,
+      updatedAt: new Date().toISOString(),
+    };
+    this.persist("paymentIntents");
+    return this.paymentIntents[idx];
+  }
+
+  public findLatestPendingIntentByEmail(email: string): PaymentIntent | undefined {
+    const needle = email.trim().toLowerCase();
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    return this.paymentIntents.find((intent) => {
+      if (intent.status !== "pending") return false;
+      if (intent.userEmail !== needle) return false;
+      return new Date(intent.createdAt).getTime() >= cutoff;
+    });
+  }
+
+  public findCreditByPaymentRef(paymentRef: string): TokenTransaction | undefined {
+    return this.tokenTransactions.find(
+      (tx) => tx.type === "credit" && tx.paymentRef === paymentRef
+    );
   }
 
   // --- Campus Deadlines ---

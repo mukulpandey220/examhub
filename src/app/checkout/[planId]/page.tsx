@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { 
@@ -14,47 +14,17 @@ import {
   Clock
 } from "lucide-react";
 import { getPlanById } from "@/data/pricing";
-import { OFFICIAL_RAZORPAY_PAYMENT_URL, RAZORPAY_DISPLAY_URL } from "@/config/payment";
+import { RAZORPAY_DISPLAY_URL } from "@/config/payment";
 import { executeAutomatedRazorpayPayment } from "@/lib/razorpay";
 
 export default function CheckoutPage({ params }: { params: { planId: string } }) {
   const router = useRouter();
   const plan = getPlanById(params.planId);
 
-  const [orderData, setOrderData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"upi" | "card" | "netbanking">("upi");
-
-  // Create server validated order
-  useEffect(() => {
-    async function initOrder() {
-      if (!plan) return;
-      try {
-        const res = await fetch("/api/checkout/create-order", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            planId: plan.id,
-            userId: "user-student-demo",
-            userEmail: "student@campusradar.edu.in",
-          }),
-        });
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error);
-
-        setOrderData(data);
-        setLoading(false);
-      } catch (err: any) {
-        setError(err.message || "Failed to initialize order");
-        setLoading(false);
-      }
-    }
-
-    initOrder();
-  }, [plan]);
 
   if (!plan) {
     return (
@@ -78,27 +48,27 @@ export default function CheckoutPage({ params }: { params: { planId: string } })
     setProcessing(true);
     setError("");
 
-    executeAutomatedRazorpayPayment({
-      planId: plan.id,
-      amountRupees: baseAmount,
-      tokenCount: baseAmount,
-      userId: "user-student-demo",
-      userName: "Arjun Sharma",
-      userEmail: "student@campusradar.edu.in",
-      description: `${plan.name} (${plan.durationLabel})`,
-      onSuccess: (result) => {
-        router.push(
-          `/billing/payment-result?status=success&orderId=${orderData?.orderId || `order_${plan.tier}_${Date.now()}`}&planId=${plan.id}&amount=${baseAmount}&paymentRef=${result.paymentRef}`
-        );
-      },
-      onError: (errMsg) => {
-        setError(errMsg || "Payment processing failed");
-        setProcessing(false);
-      },
-      onDismiss: () => {
-        setProcessing(false);
-      },
-    });
+    if (plan.priceRupees === 0) {
+      router.push("/dashboard");
+      return;
+    }
+
+    try {
+      await executeAutomatedRazorpayPayment({
+        planId: plan.id,
+        userId: "user-student-demo",
+        userName: "Arjun Sharma",
+        userEmail: "student@campusradar.edu.in",
+        description: `${plan.name} (${plan.durationLabel})`,
+        onError: (errMsg) => {
+          setError(errMsg || "Could not open the Razorpay payment page.");
+          setProcessing(false);
+        },
+      });
+    } catch (err: any) {
+      setError(err.message || "Could not open the Razorpay payment page.");
+      setProcessing(false);
+    }
   };
 
   const methods: { id: "upi" | "card" | "netbanking"; label: string }[] = [
@@ -202,18 +172,21 @@ export default function CheckoutPage({ params }: { params: { planId: string } })
                   className="btn btn-primary w-full py-3.5 text-base"
                 >
                   <Lock className="h-4 w-4" />
-                  {processing ? "Verifying…" : `Pay ₹${totalPayable}`}
+                  {processing ? "Opening Razorpay…" : "Pay on Razorpay · ₹99"}
                 </button>
+                <p className="text-center text-xs text-slate-500">
+                  Opens {RAZORPAY_DISPLAY_URL}. The plan is activated only after the server verifies the ₹99 payment.
+                </p>
 
-                <a
-                  href={OFFICIAL_RAZORPAY_PAYMENT_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  disabled={loading || processing}
+                  onClick={handlePay}
                   className="btn btn-secondary w-full"
                 >
                   <CreditCard className="h-4 w-4" />
                   Pay on the Razorpay page
-                </a>
+                </button>
               </div>
             </div>
           </div>

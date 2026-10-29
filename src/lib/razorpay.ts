@@ -1,8 +1,8 @@
+import { OFFICIAL_RAZORPAY_PAYMENT_URL } from "@/config/payment";
+
 /**
- * Automated Razorpay Checkout Client Helper
- * Handles automated payment lifecycle: order creation, Razorpay modal launch,
- * automated callback handling, and server-side token crediting.
- * ZERO manual UTR or reference input required from students.
+ * Opens the existing Razorpay payment page after the server records a pending checkout.
+ * Tokens and exam access are granted only when /payment/callback verifies the payment.
  */
 
 export interface RazorpayPaymentOptions {
@@ -29,51 +29,26 @@ export interface RazorpayPaymentOptions {
 }
 
 export function loadRazorpayScript(): Promise<boolean> {
-  return new Promise((resolve) => {
-    if (typeof window === "undefined") return resolve(false);
-    if ((window as any).Razorpay) return resolve(true);
-
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.async = true;
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
+  return Promise.resolve(false);
 }
 
-/**
- * Initiates an end-to-end automated payment:
- * 1. Creates order via /api/checkout/create-order
- * 2. Launches Razorpay Checkout modal
- * 3. On payment completion, automatically verifies via /api/checkout/verify-payment
- * 4. Credits tokens to student account immediately
- */
 export async function executeAutomatedRazorpayPayment(options: RazorpayPaymentOptions) {
   const {
-    amountRupees = 99,
-    tokenCount = 99,
     examId,
-    examTitle,
     planId,
     userId = "user-student-ramkumar",
-    userName = "Ramkumar Malothu",
+    userName,
     userEmail = "ramkumar.malothu@nyeras.com",
-    userPhone = "+919180123915",
-    description,
+    userPhone,
     onSuccess,
     onError,
-    onDismiss,
   } = options;
 
   try {
-    // 1. Create order on the server
     const orderRes = await fetch("/api/checkout/create-order", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        amountRupees,
-        tokenCount,
         examId,
         planId,
         userId,
@@ -86,85 +61,31 @@ export async function executeAutomatedRazorpayPayment(options: RazorpayPaymentOp
       throw new Error(orderData.error || "Failed to initialize payment order.");
     }
 
-    // 2. Load Razorpay script
-    const isLoaded = await loadRazorpayScript();
-    const isLiveKey =
-      orderData.keyId &&
-      !orderData.keyId.includes("demo") &&
-      orderData.keyId !== "rzp_test_exampleKey123";
-
-    if (isLoaded && (window as any).Razorpay && isLiveKey) {
-      // Live or Valid Test Razorpay Gateway
-      const rzpOptions: any = {
-        key: orderData.keyId,
-        amount: orderData.amountPaise,
-        currency: orderData.currency || "INR",
-        name: "Exam Hub - NTCRA",
-        description: description || orderData.description || `Pass Registration (+${tokenCount} Tokens)`,
-        order_id:
-          orderData.orderId && orderData.orderId.startsWith("order_") && !orderData.orderId.includes("test")
-            ? orderData.orderId
-            : undefined,
-        prefill: {
-          name: userName,
-          email: userEmail,
-          contact: userPhone,
-        },
-        theme: {
-          color: "#2563eb",
-        },
-        handler: async function (response: any) {
-          // Automatic Verification - NO MANUAL UTR
-          await verifyAndCreditPayment({
-            orderId: response.razorpay_order_id || orderData.orderId,
-            paymentId: response.razorpay_payment_id,
-            signature: response.razorpay_signature,
-            examId,
-            tokenCount: orderData.tokenCount || tokenCount,
-            amountRupees: orderData.amountRupees || amountRupees,
-            planId,
-            userId,
-            onSuccess,
-            onError,
-          });
-        },
-        modal: {
-          ondismiss: function () {
-            if (onDismiss) onDismiss();
-          },
-        },
-      };
-
-      const rzpInstance = new (window as any).Razorpay(rzpOptions);
-      rzpInstance.on("payment.failed", function (failResponse: any) {
-        if (onError) {
-          onError(failResponse?.error?.description || "Payment failed. Please retry.");
-        }
-      });
-      rzpInstance.open();
-    } else {
-      // Automated instant verification for test mode / fallback
-      const simulatedPaymentId = `pay_rzp_auto_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-      await verifyAndCreditPayment({
-        orderId: orderData.orderId,
-        paymentId: simulatedPaymentId,
-        examId,
-        tokenCount: orderData.tokenCount || tokenCount,
-        amountRupees: orderData.amountRupees || amountRupees,
-        planId,
-        userId,
-        onSuccess,
-        onError,
-      });
+    if (orderData.isFree) {
+      if (onSuccess) {
+        onSuccess({
+          tokenBalance: 0,
+          tokensAdded: 0,
+          paymentRef: orderData.orderId,
+          examUnlocked: true,
+          message: "This exam does not require payment.",
+        });
+      }
+      return orderData;
     }
+
+    const url = new URL(OFFICIAL_RAZORPAY_PAYMENT_URL);
+    if (userEmail) url.searchParams.set("email", userEmail);
+    if (userName) url.searchParams.set("name", userName);
+    if (userPhone) url.searchParams.set("phone", userPhone.replace(/[^\d+]/g, ""));
+    window.location.assign(url.toString());
+    return orderData;
   } catch (err: any) {
-    if (onError) onError(err.message || "Failed to process automated payment.");
+    if (onError) onError(err.message || "Failed to open the Razorpay payment page.");
+    throw err;
   }
 }
 
-/**
- * Automates calling /api/checkout/verify-payment to credit tokens to the student's account
- */
 export async function verifyAndCreditPayment(params: {
   orderId?: string;
   paymentId: string;
@@ -177,59 +98,7 @@ export async function verifyAndCreditPayment(params: {
   onSuccess?: (result: any) => void;
   onError?: (msg: string) => void;
 }) {
-  try {
-    const res = await fetch("/api/checkout/verify-payment", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        orderId: params.orderId || `order_auto_${Date.now()}`,
-        paymentId: params.paymentId,
-        signature: params.signature,
-        examId: params.examId,
-        tokenCount: params.tokenCount,
-        amountRupees: params.amountRupees,
-        planId: params.planId,
-        userId: params.userId || "user-student-ramkumar",
-        isTestModeApproved: true,
-      }),
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || "Payment verification failed.");
-    }
-
-    // Update local storage user profile if available
-    if (typeof window !== "undefined") {
-      try {
-        const stored = localStorage.getItem("campus_radar_user");
-        if (stored) {
-          const user = JSON.parse(stored);
-          user.tokens = data.tokenBalance;
-          if (params.examId && !user.unlockedExams?.includes(params.examId)) {
-            user.unlockedExams = [...(user.unlockedExams || []), params.examId];
-          }
-          localStorage.setItem("campus_radar_user", JSON.stringify(user));
-        }
-      } catch (e) {}
-    }
-
-    if (params.onSuccess) {
-      params.onSuccess({
-        tokenBalance: data.tokenBalance,
-        tokensAdded: data.tokensAdded,
-        paymentRef: params.paymentId,
-        transaction: data.transaction,
-        examUnlocked: data.examUnlocked,
-        message: data.message,
-      });
-    }
-
-    return data;
-  } catch (err: any) {
-    if (params.onError) {
-      params.onError(err.message || "Automated verification error.");
-    }
-    throw err;
-  }
+  const message = "Payment can only be confirmed from the Razorpay return page. Access has not been granted.";
+  if (params.onError) params.onError(message);
+  throw new Error(message);
 }

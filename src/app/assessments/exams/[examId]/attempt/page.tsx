@@ -1408,7 +1408,7 @@ export default function LiveExaminationPage({ params }: { params: { examId: stri
         <div className="text-center space-y-4 max-w-sm px-6">
           <div className="relative w-14 h-14 mx-auto">
             <div className="absolute inset-0 border-4 border-blue-500/20 rounded-full" />
-            <div className="w-14 h-14 border-4 border-[#6f6bea] border-t-transparent rounded-full animate-spin" />
+            <div className="w-14 h-14 border-4 border-[#25D366] border-t-transparent rounded-full animate-spin" />
           </div>
           <div className="space-y-1">
             <h3 className="font-black text-lg tracking-tight text-white">Nyeras Proctored Environment</h3>
@@ -1534,7 +1534,7 @@ export default function LiveExaminationPage({ params }: { params: { examId: stri
         {/* Left: Exam Details & Candidate Badge */}
         <div className="flex items-center space-x-3">
           <div className="flex items-center space-x-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-electric-500 shadow-[0_0_8px_#6f6bea]" />
+            <span className="w-2.5 h-2.5 rounded-full bg-electric-500 shadow-[0_0_8px_#25D366]" />
             <span className="font-black text-sm tracking-tight text-white hidden sm:inline">
               {exam?.title}
             </span>

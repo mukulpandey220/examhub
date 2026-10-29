@@ -22,76 +22,61 @@ function PaymentCallbackContent() {
   const [loading, setLoading] = useState(true);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [tokensAdded, setTokensAdded] = useState<number>(99);
+  const [tokensAdded, setTokensAdded] = useState<number>(0);
   const [newBalance, setNewBalance] = useState<number>(0);
-  const [step, setStep] = useState<string>("Detecting Razorpay transaction...");
+  const [step, setStep] = useState<string>("Reading the Razorpay return…");
 
   useEffect(() => {
     async function autoVerify() {
-      // 1. Extract params passed by Razorpay redirect
-      const paymentId = 
-        searchParams.get("razorpay_payment_id") ||
-        searchParams.get("payment_id") ||
-        searchParams.get("razorpay_payment_link_id") ||
-        `pay_rzp_callback_${Date.now()}`;
+      const paymentStatus = (searchParams.get("razorpay_payment_link_status") || searchParams.get("status") || "").toLowerCase();
+      const paymentId = searchParams.get("razorpay_payment_id") || "";
+      const paymentLinkId = searchParams.get("razorpay_payment_link_id") || "";
+      const referenceId = searchParams.get("razorpay_payment_link_reference_id") || "";
+      const signature = searchParams.get("razorpay_signature") || "";
 
-      const orderId = 
-        searchParams.get("razorpay_order_id") ||
-        searchParams.get("order_id") ||
-        `order_cb_${Date.now()}`;
-
-      const signature = searchParams.get("razorpay_signature") || undefined;
-      const paymentStatus = searchParams.get("razorpay_payment_link_status") || searchParams.get("status");
-
-      if (paymentStatus === "cancelled" || paymentStatus === "failed") {
-        setError("Payment was cancelled or failed on the payment gateway.");
+      if (paymentStatus === "cancelled" || paymentStatus === "failed" || paymentStatus === "expired") {
+        await fetch("/api/checkout/verify-payment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ razorpay_payment_link_status: paymentStatus }),
+        }).catch(() => undefined);
+        setError("Payment was cancelled or failed. Access has not been granted.");
         setLoading(false);
         return;
       }
 
-      setStep("Validating cryptographic signature with Razorpay...");
+      if (!paymentId || !paymentLinkId || !signature) {
+        setError("Razorpay did not return a verifiable payment. Access has not been granted.");
+        setLoading(false);
+        return;
+      }
+
+      setStep("Checking the payment with Razorpay…");
 
       try {
-        // Read current student user
-        let userId = "user-student-ramkumar";
-        if (typeof window !== "undefined") {
-          try {
-            const stored = localStorage.getItem("campus_radar_user");
-            if (stored) {
-              const u = JSON.parse(stored);
-              if (u.id) userId = u.id;
-            }
-          } catch (e) {}
-        }
-
-        setStep("Crediting tokens to student account...");
-
         const res = await fetch("/api/checkout/verify-payment", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            orderId,
-            paymentId,
-            signature,
-            userId,
-            tokenCount: 99,
-            amountRupees: 99,
-            isTestModeApproved: true,
+            razorpay_payment_id: paymentId,
+            razorpay_payment_link_id: paymentLinkId,
+            razorpay_payment_link_reference_id: referenceId,
+            razorpay_payment_link_status: paymentStatus,
+            razorpay_signature: signature,
           }),
         });
 
         const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || "Automated payment verification failed.");
+        if (!res.ok || !data.paid) {
+          throw new Error(data.error || "Payment could not be verified. Access has not been granted.");
         }
 
-        setTokensAdded(data.tokensAdded || 99);
-        setNewBalance(data.tokenBalance || 99);
+        setTokensAdded(data.tokensAdded || 0);
+        setNewBalance(data.tokenBalance || 0);
         setSuccess(true);
         setLoading(false);
 
-        // Update local storage
-        if (typeof window !== "undefined") {
+        if (typeof window !== "undefined" && typeof data.tokenBalance === "number") {
           try {
             const stored = localStorage.getItem("campus_radar_user");
             if (stored) {
@@ -102,7 +87,6 @@ function PaymentCallbackContent() {
           } catch (e) {}
         }
 
-        // Fire celebratory confetti
         try {
           confetti({
             particleCount: 100,
@@ -111,12 +95,11 @@ function PaymentCallbackContent() {
           });
         } catch (e) {}
 
-        // Auto-redirect to dashboard after 3.5 seconds
         setTimeout(() => {
-          router.push("/dashboard?payment=success");
-        }, 3500);
+          router.push(data.nextUrl || "/dashboard");
+        }, 2500);
       } catch (err: any) {
-        setError(err.message || "Failed to automatically verify payment.");
+        setError(err.message || "Failed to verify payment. Access has not been granted.");
         setLoading(false);
       }
     }
@@ -201,10 +184,10 @@ function PaymentCallbackContent() {
 
             <div className="flex flex-col gap-2 pt-2">
               <Link href="/payment" className="btn btn-primary">
-                Back to payment
+                Try payment again
               </Link>
-              <Link href="/dashboard" className="btn btn-secondary">
-                Go to dashboard
+              <Link href="/payment" className="btn btn-secondary">
+                Check payment status
               </Link>
             </div>
           </div>

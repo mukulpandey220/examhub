@@ -2,7 +2,7 @@ import type { Config } from "tailwindcss";
 import plugin from "tailwindcss/plugin";
 import twColors from "tailwindcss/colors";
 
-/* Shared indigo/lavender palette. Semantic success and error colors stay distinct. */
+/* Shared green palette. #25D366 is the primary button and icon color. Semantic error colors stay distinct. */
 type Palette = Record<string, string>;
 type RGB = [number, number, number];
 type Kind = "bg" | "tx" | "bd";
@@ -10,10 +10,10 @@ type Kind = "bg" | "tx" | "bd";
 const SHADES = ["50", "100", "200", "300", "400", "500", "600", "700", "800", "900", "950"];
 
 const BRAND = {
-  black: "#13122b",
-  teal: "#25226e",
-  mint: "#f3f2fd",
-  clay: "#6f6bea",
+  black: "#052e16",
+  teal: "#25D366",
+  mint: "#f3fbf6",
+  clay: "#128a3e",
   taupe: "#ba6f50",
 };
 
@@ -42,7 +42,7 @@ function scaleFrom(base: string): Palette {
   return out;
 }
 
-const electric = scaleFrom(BRAND.teal); // primary (also exposed as `brand`)
+const electric = scaleFrom(BRAND.teal); // primary button green #25D366 (also exposed as `brand`)
 const clay = scaleFrom(BRAND.clay);
 const taupe = scaleFrom(BRAND.taupe);
 
@@ -132,12 +132,11 @@ const NEUTRAL_DARK: Record<Kind, Record<string, string>> = {
   },
 };
 
-/* The brand indigo is too dark to read as a solid fill or border on a black
-   page, so the brand scale gets lighter values in dark mode only. */
+/* Keep the same WhatsApp green on dark surfaces so buttons stay #25D366. */
 const BRAND_DARK: Record<Kind, Record<string, string>> = {
-  bg: { 500: "#5a54d8", 600: "#6b66e6", 700: "#4943c2", 800: "#3b36a0", 900: "#2f2b80" },
-  tx: { 400: "#9b97ff", 500: "#a5a1ff", 600: "#a5a1ff", 700: "#bdbaff", 800: "#d3d1ff", 900: "#e6e5ff" },
-  bd: { 400: "#6f6bea", 500: "#6f6bea", 600: "#8b87f2" },
+  bg: { 500: "#25D366", 600: "#3ee07a", 700: "#1aad52", 800: "#128a3e", 900: "#0c5c2a" },
+  tx: { 400: "#7eefaa", 500: "#8ff5b6", 600: "#8ff5b6", 700: "#b6f8ce", 800: "#d4fbe4", 900: "#e9fdf1" },
+  bd: { 400: "#25D366", 500: "#25D366", 600: "#4ae07f" },
 };
 
 /* Tint strength for chromatic light fills/borders (blended over CARD) */
@@ -289,8 +288,8 @@ const config: Config = {
         "soft-md": "var(--shadow-md)",
         "soft-lg": "var(--shadow-lg)",
         "soft-xl": "var(--shadow-xl)",
-        electric: "0 6px 16px -4px rgba(0, 121, 140, 0.45)",
-        "electric-lg": "0 10px 26px -6px rgba(0, 121, 140, 0.55)",
+        electric: "0 8px 18px -4px rgba(37, 211, 102, 0.45)",
+        "electric-lg": "0 14px 28px -6px rgba(37, 211, 102, 0.5)",
       },
       keyframes: {
         "fade-up": {

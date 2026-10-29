@@ -77,8 +77,7 @@ export async function POST(req: NextRequest) {
       action, 
       updates, 
       questionId, 
-      examId,
-      paymentRef 
+      examId
     } = body;
 
     // Login Action
@@ -162,84 +161,11 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (action === "add_tokens") {
-      const amountTokens = Number(body.tokens || body.amountRupees || 99);
-      const creditRes = db.addTokens({
-        userId,
-        tokens: amountTokens,
-        rupees: amountTokens,
-        paymentRef: paymentRef || `pay_token_${Date.now()}`,
-        description: body.description || `Added ${amountTokens} tokens (1 Rs = 1 Token)`,
-        examId: examId || undefined,
-      });
+    if (action === "add_tokens" || action === "confirm_payment") {
       return NextResponse.json({
-        success: true,
-        tokens: creditRes.newBalance,
-        transaction: creditRes.transaction,
-      });
-    }
-
-    if (action === "confirm_payment") {
-      // Activated via direct Razorpay link or exam fee payment
-      const ref = paymentRef || `pay_rzp_${Date.now()}`;
-      const targetUserId = userId || "user-student-ramkumar";
-
-      const existingTxs = db.getTokenTransactions(targetUserId);
-      const alreadyCredited = existingTxs.find(t => t.paymentRef && t.paymentRef === ref);
-      if (alreadyCredited) {
-        const ent = db.getEntitlements(targetUserId);
-        return NextResponse.json({
-          success: true,
-          tokens: db.getUserTokens(targetUserId),
-          alreadyProcessed: true,
-          entitlement: ent[0],
-          message: "Payment previously authenticated and tokens credited."
-        });
-      }
-      
-      // If payment is for a specific exam fee
-      if (examId) {
-        const exam = db.getExamById(examId);
-        const fee = exam?.feeRupees ?? 99;
-        const creditRes = db.addTokens({
-          userId: userId || "user-student-ramkumar",
-          tokens: fee,
-          rupees: fee,
-          paymentRef: ref,
-          description: `Exam Fee Payment: ${exam?.title || "Exam"} (+${fee} Tokens)`,
-          examId,
-        });
-
-        return NextResponse.json({
-          success: true,
-          tokens: creditRes.newBalance,
-          examUnlocked: true,
-          message: `Payment verified via Razorpay. Credited ${fee} tokens and unlocked ${exam?.title || "Exam"}.`,
-        });
-      }
-
-      const ent = db.grantEntitlement({
-        userId: userId || "user-student-ramkumar",
-        tier: "semester",
-        durationDays: 180,
-        paymentRef: ref,
-        orderId: `order_rzp_${Date.now()}`,
-      });
-
-      // Also add 180 tokens for the semester pass
-      db.addTokens({
-        userId: userId || "user-student-ramkumar",
-        tokens: 180,
-        rupees: 180,
-        paymentRef: ref,
-        description: "Semester Pass Token Credit (₹1 = 1 Token)",
-      });
-
-      return NextResponse.json({ 
-        success: true, 
-        entitlement: ent, 
-        message: `Payment confirmed successfully via Razorpay portal (${OFFICIAL_RAZORPAY_PAYMENT_URL}). Pass & tokens are active.` 
-      });
+        success: false,
+        error: "Payments are recorded only after Razorpay verifies them. Open the payment page and complete checkout.",
+      }, { status: 403 });
     }
 
     if (action === "toggle_bookmark") {

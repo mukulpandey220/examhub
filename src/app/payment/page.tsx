@@ -26,8 +26,8 @@ import {
   Loader2
 } from "lucide-react";
 import confetti from "canvas-confetti";
-import { OFFICIAL_RAZORPAY_PAYMENT_URL, RAZORPAY_DISPLAY_URL, PAYMENT_CONFIG } from "@/config/payment";
-import { executeAutomatedRazorpayPayment, verifyAndCreditPayment } from "@/lib/razorpay";
+import { OFFICIAL_RAZORPAY_PAYMENT_URL, PAYMENT_CONFIG } from "@/config/payment";
+import { executeAutomatedRazorpayPayment } from "@/lib/razorpay";
 
 function PaymentPageContent() {
   const router = useRouter();
@@ -58,56 +58,10 @@ function PaymentPageContent() {
       } catch (e) {}
     }
 
-    // Auto-detect redirect parameters from Razorpay hosted page
-    const rzpPaymentId = searchParams.get("razorpay_payment_id") || searchParams.get("payment_id");
-    const rzpOrderId = searchParams.get("razorpay_order_id") || searchParams.get("order_id");
-    const rzpSignature = searchParams.get("razorpay_signature");
-
-    if (rzpPaymentId) {
-      handleAutoVerifyFromParams(rzpPaymentId, rzpOrderId || undefined, rzpSignature || undefined);
+    if (searchParams.get("razorpay_payment_id") || searchParams.get("razorpay_payment_link_status")) {
+      router.replace(`/payment/callback?${searchParams.toString()}`);
     }
-  }, [searchParams]);
-
-  // Automated Verification if redirected with query params
-  const handleAutoVerifyFromParams = async (paymentId: string, orderId?: string, signature?: string) => {
-    setProcessing(true);
-    setStatusMessage({
-      type: "info",
-      text: "Detected incoming Razorpay payment. Verifying automatically...",
-    });
-
-    try {
-      const result = await verifyAndCreditPayment({
-        orderId: orderId || `order_auto_${Date.now()}`,
-        paymentId,
-        signature,
-        tokenCount: 99,
-        amountRupees: 99,
-        userId: candidateId,
-      });
-
-      setCandidateTokens(result.tokenBalance);
-      setStatusMessage({
-        type: "success",
-        text: `Payment verified automatically! Credited ${result.tokensAdded} tokens to your account and unlocked all 72 domains.`,
-      });
-
-      try {
-        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-      } catch (e) {}
-
-      setTimeout(() => {
-        router.push("/dashboard?payment=success");
-      }, 2000);
-    } catch (err: any) {
-      setStatusMessage({
-        type: "error",
-        text: err.message || "Failed to automatically verify payment.",
-      });
-    } finally {
-      setProcessing(false);
-    }
-  };
+  }, [searchParams, router]);
 
   const handleCopyLink = () => {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
@@ -164,51 +118,23 @@ function PaymentPageContent() {
     setStatusMessage(null);
 
     try {
-      const res = await fetch(`/api/auth?userId=${candidateId}`);
+      const res = await fetch("/api/checkout/payment-status");
       const data = await res.json();
 
-      if (data.tokens !== undefined) {
-        setCandidateTokens(data.tokens);
-      }
-
-      const hasActivePass = data.entitlements && data.entitlements.length > 0;
-      if (hasActivePass) {
+      if (data.paid) {
+        if (typeof data.tokenBalance === "number") setCandidateTokens(data.tokenBalance);
         setStatusMessage({
           type: "success",
-          text: `Payment verified! Active pass confirmed with ${data.tokens} tokens in your account.`,
+          text: data.message || "Payment verified. You can continue.",
         });
         setTimeout(() => {
-          router.push("/dashboard?payment=success");
-        }, 1500);
+          router.push(data.nextUrl || "/dashboard");
+        }, 1200);
       } else {
-        // Automatically verify latest transaction or credit test pass if requested
-        const verifyRes = await fetch("/api/checkout/verify-payment", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userId: candidateId,
-            tokenCount: 99,
-            amountRupees: 99,
-            paymentId: `pay_auto_check_${Date.now()}`,
-            isTestModeApproved: true,
-          }),
+        setStatusMessage({
+          type: "info",
+          text: data.message || "No verified payment yet. Access has not been granted.",
         });
-        const verifyData = await verifyRes.json();
-        if (verifyData.success) {
-          setCandidateTokens(verifyData.tokenBalance);
-          setStatusMessage({
-            type: "success",
-            text: `Automated detection completed! Credited ${verifyData.tokensAdded} tokens to your account.`,
-          });
-          setTimeout(() => {
-            router.push("/dashboard?payment=success");
-          }, 1800);
-        } else {
-          setStatusMessage({
-            type: "info",
-            text: "No new payment detected yet. If you completed payment, please wait a few seconds or click Pay Now.",
-          });
-        }
       }
     } catch (err: any) {
       setStatusMessage({
@@ -362,15 +288,14 @@ function PaymentPageContent() {
                     )}
                   </button>
                 </div>
-                <a
-                  href={OFFICIAL_RAZORPAY_PAYMENT_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={handleAutomatedPayment}
                   className="inline-flex items-center gap-1.5 text-sm font-semibold text-electric-600 hover:text-electric-700"
                 >
                   Open hosted page
                   <ExternalLink className="h-3.5 w-3.5" />
-                </a>
+                </button>
               </div>
             </details>
 
