@@ -1,0 +1,52 @@
+# ───────────────────────────────────────────────────────────────
+# Nyeras Nxtmove — files that must not be committed
+# ───────────────────────────────────────────────────────────────
+
+# Dependencies (restored with `npm install`)
+/node_modules
+/.pnp
+.pnp.js
+
+# Next.js build output, including the alternate folders used via NEXT_DIST_DIR
+# (e.g. .next-production for production verification)
+/.next/
+/.next-*
+/out/
+
+# Runtime data store written by src/lib/db.ts while the app runs.
+# It holds user profiles (including demo passwords), partnership leads with contact
+# details and exam attempts. It is regenerated from src/data/ when missing.
+/.data/
+
+# Secrets and local configuration. Only the template is committed.
+.env
+.env.*
+!.env.example
+
+# TypeScript / tooling caches and generated files
+*.tsbuildinfo
+next-env.d.ts
+
+# Test output
+/coverage/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Deployment tooling
+.vercel
+
+# Operating-system files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors: ignore personal settings, keep the shared project settings file
+.idea/
+*.swp
+.vscode/*
+!.vscode/settings.json
