@@ -10,6 +10,7 @@ import { ScrollReveal } from "@/components/ScrollReveal";
 import { CountUp } from "@/components/CountUp";
 import { PricingCards } from "@/components/PricingCards";
 import { BenefitCards } from "@/components/BenefitCards";
+import { InteractiveGlobe } from "@/components/InteractiveGlobe";
 
 const SECTIONS = [
   { weight: 25, title: "Analytical aptitude", text: "Put your quantitative ability and logical reasoning to the test.", icon: Cpu },
@@ -51,10 +52,8 @@ export default function HomePage() {
             <div className="hero-checks"><span><Check size={15} /> 72 domains</span><span><Check size={15} /> Proctored exams</span><span><Check size={15} /> Verified certificate</span></div>
             <div className="hero-note"><span className="hero-note-icon"><GraduationCap size={22} /></span><p>A clearer path from campus learning<br />to career readiness.</p></div>
           </div>
-          <div className="hero-visual anim-rise" data-parallax>
-            <div className="hero-orbit" aria-hidden="true" />
-            <div className="hero-photo"><Image src="/images/learner.jpg" alt="A learner smiling while working on a laptop" fill priority sizes="(max-width: 767px) 90vw, 460px" /></div>
-            <div className="hero-progress"><div><span className="progress-icon"><TrendingUp size={20} /></span><div><strong>Your next chapter</strong><small>Learn. Benchmark. Move forward.</small></div><ArrowUpRight size={19} /></div><div className="progress-track"><span /></div></div>
+          <div className="hero-visual anim-rise flex items-center justify-center" data-parallax>
+            <InteractiveGlobe />
           </div>
         </div>
       </section>
