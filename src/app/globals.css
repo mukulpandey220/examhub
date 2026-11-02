@@ -16,7 +16,7 @@
     --shadow-md: 0 1px 0 rgba(255,255,255,.85) inset, 0 14px 32px rgba(16, 33, 23, .08);
     --shadow-lg: 0 1px 0 #fff inset, 0 22px 48px rgba(16, 33, 23, .1);
     --shadow-xl: 0 1px 0 #fff inset, 0 28px 64px rgba(37, 211, 102, .16);
-    --grid-line: rgba(16, 33, 23, 0.055);
+    --grid-line: rgba(37, 211, 102, 0.12);
   }
   .dark {
     color-scheme: dark;
@@ -27,7 +27,7 @@
     --shadow-sm: 0 1px 0 rgba(255,255,255,.06) inset, 0 8px 18px #00000080;
     --shadow-md: 0 1px 0 rgba(255,255,255,.08) inset, 0 16px 36px #000000a0;
     --shadow-lg: 0 18px 40px #000000b0; --shadow-xl: 0 24px 60px #000000c0;
-    --grid-line: rgba(37, 211, 102, 0.09);
+    --grid-line: rgba(37, 211, 102, 0.12);
   }
   * { border-color: var(--border); }
   html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; scroll-padding-top: 100px; }
@@ -41,7 +41,7 @@
       linear-gradient(var(--grid-line) 1px, transparent 1px),
       linear-gradient(90deg, var(--grid-line) 1px, transparent 1px),
       radial-gradient(900px 520px at 88% -8%, rgba(37, 211, 102, 0.18), transparent 62%);
-    background-size: 56px 56px, 56px 56px, auto;
+    background-size: 24px 24px, 24px 24px, auto;
     background-attachment: fixed;
   }
   h1,h2,h3,h4 { font-family: var(--font-display),var(--font-sans),Arial,sans-serif; letter-spacing: -.035em; }
@@ -335,6 +335,8 @@ html.fullscreen-mode-active,body.fullscreen-mode-active { width: 100vw !importan
 .hero-copy > :nth-child(5) { animation-delay: .32s; } .hero-copy > :nth-child(6) { animation-delay: .4s; }
 .hero-visual.anim-rise { animation-delay: .2s; animation-duration: .9s; }
 @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+@keyframes pulse-slow { 0%,100% { opacity: 0.85; transform: scale(1); } 50% { opacity: 1; transform: scale(1.008); } }
+.animate-pulse-slow { animation: pulse-slow 3.5s ease-in-out infinite; }
 .benefit-item,.domain-row,.deadline-row,.home-plan { animation: rise-in .7s var(--ease-out) backwards; }
 .stream-band a { transition: transform .25s var(--ease-out), color .2s; }
 .stream-band a:hover { transform: translateY(-3px); }
