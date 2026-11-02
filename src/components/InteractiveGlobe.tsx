@@ -277,14 +277,15 @@ export function InteractiveGlobe() {
     function drawGlobe(l0: number, phi: number) {
       if (!ctx) return;
 
-      // Outer atmospheric radial halo
-      const g = ctx.createRadialGradient(cx, cy, R * 0.98, cx, cy, R * 1.45);
-      g.addColorStop(0, "rgba(80,130,255,0.30)");
-      g.addColorStop(0.4, "rgba(50,90,220,0.10)");
-      g.addColorStop(1, "rgba(30,60,180,0)");
+      // Outer atmospheric radial halo with emerald & sapphire chromatic blend
+      const g = ctx.createRadialGradient(cx, cy, R * 0.98, cx, cy, R * 1.55);
+      g.addColorStop(0, "rgba(80,140,255,0.32)");
+      g.addColorStop(0.35, "rgba(50,110,230,0.14)");
+      g.addColorStop(0.7, "rgba(37,211,102,0.06)");
+      g.addColorStop(1, "rgba(20,40,120,0)");
       ctx.fillStyle = g;
       ctx.beginPath();
-      ctx.arc(cx, cy, R * 1.45, 0, Math.PI * 2);
+      ctx.arc(cx, cy, R * 1.55, 0, Math.PI * 2);
       ctx.fill();
 
       // Globe sphere body
@@ -629,70 +630,82 @@ export function InteractiveGlobe() {
   };
 
   return (
-    <div
-      ref={wrapRef}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      className="relative w-full max-w-[460px] sm:max-w-[490px] xl:max-w-[530px] rounded-3xl overflow-hidden border border-sky-900/40 bg-gradient-to-b from-[#0d1d4d]/90 via-[#071033]/90 to-[#02040f]/95 shadow-2xl p-4 sm:p-6 flex flex-col items-center select-none transition-all duration-500 backdrop-blur-xl"
-    >
-      {/* Top ambient highlight */}
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/40 to-transparent pointer-events-none" />
+    <div className="relative w-full max-w-[460px] sm:max-w-[490px] xl:max-w-[530px] flex items-center justify-center">
+      {/* Diffuse ambient aura blending card with hero background */}
+      <div
+        className="absolute -inset-4 sm:-inset-6 -z-10 rounded-[38px] opacity-80 pointer-events-none transition-opacity"
+        style={{
+          background:
+            "radial-gradient(circle at 50% 50%, rgba(56, 130, 255, 0.22) 0%, rgba(37, 211, 102, 0.08) 50%, transparent 75%)",
+          filter: "blur(40px)",
+        }}
+      />
 
-      {/* Typography Header */}
-      <div className="text-[11px] tracking-[0.5em] -mr-[0.5em] font-medium uppercase text-[#ecd6aa]/85">
-        Skills launched
-      </div>
+      <div
+        ref={wrapRef}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        className="relative w-full rounded-3xl overflow-hidden border border-sky-400/20 bg-gradient-to-b from-[#0c1a44]/40 via-[#071233]/50 to-[#04091c]/60 shadow-[0_20px_50px_rgba(2,6,23,0.65),0_0_60px_rgba(30,80,240,0.12)] p-4 sm:p-6 flex flex-col items-center select-none transition-all duration-500 backdrop-blur-2xl"
+      >
+        {/* Top ambient highlight */}
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-300/40 to-transparent pointer-events-none" />
 
-      <div className="flex items-baseline gap-3 mt-3">
-        <span
-          ref={numRef}
-          className="num font-light text-6xl sm:text-7xl xl:text-8xl leading-none tabular-nums text-[#f8f1e2] drop-shadow-[0_0_35px_rgba(140,180,255,0.25)]"
-          style={{ fontFamily: '"Cormorant Garamond", Georgia, serif' }}
-        >
-          0
-        </span>
-        <span
-          className="unit italic font-normal text-2xl sm:text-3xl text-[#f8f1e2]/80"
-          style={{ fontFamily: '"Cormorant Garamond", Georgia, serif' }}
-        >
-          skills
-        </span>
-      </div>
+        {/* Typography Header */}
+        <div className="text-[11px] tracking-[0.5em] -mr-[0.5em] font-medium uppercase text-[#ecd6aa]/90 drop-shadow-[0_1px_8px_rgba(236,214,170,0.3)]">
+          Skills launched
+        </div>
 
-      {/* Subtle gold separator rule */}
-      <div className="w-[72px] h-[1px] mt-4 bg-gradient-to-r from-transparent via-[#ecd6aa]/80 to-transparent" />
+        <div className="flex items-baseline gap-3 mt-3">
+          <span
+            ref={numRef}
+            className="num font-light text-6xl sm:text-7xl xl:text-8xl leading-none tabular-nums text-[#f8f1e2] drop-shadow-[0_0_35px_rgba(140,180,255,0.25)]"
+            style={{ fontFamily: '"Cormorant Garamond", Georgia, serif' }}
+          >
+            0
+          </span>
+          <span
+            className="unit italic font-normal text-2xl sm:text-3xl text-[#f8f1e2]/80"
+            style={{ fontFamily: '"Cormorant Garamond", Georgia, serif' }}
+          >
+            skills
+          </span>
+        </div>
 
-      {/* 3D Dotted Canvas with Arcs */}
-      <div className="relative w-full aspect-square max-w-[420px] flex items-center justify-center -mt-1 cursor-grab active:cursor-grabbing">
-        <canvas
-          ref={canvasRef}
-          role="img"
-          aria-label="Dotted globe with elegant arcs from Nyeras in Bangalore to skill domains around the world"
-          className="w-full h-full block touch-none"
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
-        />
+        {/* Subtle gold separator rule */}
+        <div className="w-[72px] h-[1px] mt-4 bg-gradient-to-r from-transparent via-[#ecd6aa]/80 to-transparent" />
 
-        {/* Floating 3D Rotation Interaction Badge */}
-        <div
-          className={`absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#071236]/80 backdrop-blur-md border border-sky-600/30 text-[11px] text-sky-200/80 shadow-lg transition-all duration-300 pointer-events-auto ${
-            isHovered || hasUserRotated ? "opacity-100" : "opacity-75"
-          }`}
-        >
-          <Compass size={13} className="text-amber-300 animate-pulse" />
-          <span>Drag to rotate in 3D</span>
-          {hasUserRotated && (
-            <button
-              onClick={handleReset}
-              className="ml-1 inline-flex items-center gap-1 text-[11px] font-medium text-amber-300 hover:text-white transition-colors bg-amber-400/10 hover:bg-amber-400/20 px-2 py-0.5 rounded-full"
-              title="Reset orientation to Bangalore view"
-            >
-              <RotateCcw size={10} />
-              Reset
-            </button>
-          )}
+        {/* 3D Dotted Canvas with Arcs */}
+        <div className="relative w-full aspect-square max-w-[420px] flex items-center justify-center -mt-1 cursor-grab active:cursor-grabbing">
+          <canvas
+            ref={canvasRef}
+            role="img"
+            aria-label="Dotted globe with elegant arcs from Nyeras in Bangalore to skill domains around the world"
+            className="w-full h-full block touch-none"
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
+          />
+
+          {/* Floating 3D Rotation Interaction Badge */}
+          <div
+            className={`absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#071236]/80 backdrop-blur-md border border-sky-600/30 text-[11px] text-sky-200/80 shadow-lg transition-all duration-300 pointer-events-auto ${
+              isHovered || hasUserRotated ? "opacity-100" : "opacity-75"
+            }`}
+          >
+            <Compass size={13} className="text-amber-300 animate-pulse" />
+            <span>Drag to rotate in 3D</span>
+            {hasUserRotated && (
+              <button
+                onClick={handleReset}
+                className="ml-1 inline-flex items-center gap-1 text-[11px] font-medium text-amber-300 hover:text-white transition-colors bg-amber-400/10 hover:bg-amber-400/20 px-2 py-0.5 rounded-full"
+                title="Reset orientation to Bangalore view"
+              >
+                <RotateCcw size={10} />
+                Reset
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
