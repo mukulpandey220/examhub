@@ -1,549 +1,701 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
-import { Globe, Move, Sparkles, ShieldCheck, Zap } from "lucide-react";
-
-interface CityNode {
-  name: string;
-  lat: number;
-  lon: number;
-  isHQ?: boolean;
-}
-
-interface Arc {
-  from: string;
-  to: string;
-  speed: number;
-  offset: number;
-  altitude: number;
-  color: string;
-}
-
-// Key education, tech, and assessment hub locations
-const CITIES: CityNode[] = [
-  { name: "Bengaluru", lat: 12.9716, lon: 77.5946, isHQ: true },
-  { name: "New Delhi", lat: 28.6139, lon: 77.209, isHQ: true },
-  { name: "Mumbai", lat: 19.076, lon: 72.8777 },
-  { name: "Hyderabad", lat: 17.385, lon: 78.4867 },
-  { name: "Chennai", lat: 13.0827, lon: 80.2707 },
-  { name: "Pune", lat: 18.5204, lon: 73.8567 },
-  { name: "Kolkata", lat: 22.5726, lon: 88.3639 },
-  { name: "Singapore", lat: 1.3521, lon: 103.8198 },
-  { name: "Tokyo", lat: 35.6762, lon: 139.6503 },
-  { name: "Dubai", lat: 25.2048, lon: 55.2708 },
-  { name: "London", lat: 51.5074, lon: -0.1278 },
-  { name: "San Francisco", lat: 37.7749, lon: -122.4194 },
-  { name: "Sydney", lat: -33.8688, lon: 151.2093 },
-  { name: "Frankfurt", lat: 50.1109, lon: 8.6821 },
-];
-
-const ARCS: Arc[] = [
-  { from: "New Delhi", to: "Bengaluru", speed: 0.007, offset: 0.0, altitude: 0.28, color: "#25D366" },
-  { from: "Bengaluru", to: "Mumbai", speed: 0.009, offset: 0.2, altitude: 0.22, color: "#10b981" },
-  { from: "Mumbai", to: "Hyderabad", speed: 0.008, offset: 0.4, altitude: 0.20, color: "#25D366" },
-  { from: "Hyderabad", to: "Chennai", speed: 0.010, offset: 0.6, altitude: 0.18, color: "#34d399" },
-  { from: "Bengaluru", to: "Singapore", speed: 0.006, offset: 0.1, altitude: 0.35, color: "#06b6d4" },
-  { from: "Singapore", to: "Tokyo", speed: 0.005, offset: 0.3, altitude: 0.38, color: "#38bdf8" },
-  { from: "New Delhi", to: "Dubai", speed: 0.006, offset: 0.5, altitude: 0.32, color: "#10b981" },
-  { from: "Dubai", to: "London", speed: 0.005, offset: 0.7, altitude: 0.40, color: "#25D366" },
-  { from: "London", to: "San Francisco", speed: 0.004, offset: 0.2, altitude: 0.45, color: "#06b6d4" },
-  { from: "San Francisco", to: "Tokyo", speed: 0.0035, offset: 0.8, altitude: 0.48, color: "#38bdf8" },
-  { from: "Bengaluru", to: "Sydney", speed: 0.004, offset: 0.5, altitude: 0.42, color: "#25D366" },
-  { from: "Kolkata", to: "Singapore", speed: 0.007, offset: 0.4, altitude: 0.30, color: "#10b981" },
-  { from: "Mumbai", to: "London", speed: 0.0045, offset: 0.9, altitude: 0.44, color: "#34d399" },
-];
+import React, { useEffect, useRef, useState, useCallback } from "react";
+import { Compass, RotateCcw } from "lucide-react";
 
 /**
- * Generate sampled continent points for an authentic dot-matrix globe.
+ * Land polygons extracted from the user's exact Nyeras globe specification.
+ * Each polygon represents a continental boundary sampled for ray-casting land dot testing.
  */
-function generateLandPoints(): [number, number][] {
-  const points: [number, number][] = [];
+const LAND: [number, number][][] = [
+  [
+    [-17, 21], [-10, 30], [-6, 36], [10, 37], [20, 33], [32, 31], [35, 28],
+    [43, 12], [51, 12], [48, 5], [40, -3], [40, -15], [35, -25], [27, -34],
+    [18, -34], [12, -18], [13, -6], [9, 4], [-8, 4], [-17, 14],
+  ],
+  [
+    [-9, 37], [-9, 43], [-1, 46], [-5, 48], [2, 51], [8, 54], [10, 57],
+    [12, 55], [20, 55], [22, 60], [28, 60], [30, 70], [45, 68], [70, 73],
+    [100, 78], [140, 72], [170, 70], [180, 66], [160, 60], [155, 52],
+    [142, 52], [140, 45], [130, 42], [127, 35], [122, 40], [121, 31],
+    [110, 20], [106, 10], [100, 13], [103, 1], [98, 8], [94, 17],
+    [88, 22], [80, 15], [77, 8], [73, 18], [67, 25], [57, 25], [56, 27],
+    [50, 30], [48, 29], [51, 25], [56, 24], [59, 22], [52, 16], [43, 13],
+    [35, 28], [32, 31], [36, 36], [27, 37], [26, 40], [23, 36], [20, 40],
+    [16, 38], [12, 44], [8, 44], [3, 43], [-1, 37],
+  ],
+  [
+    [5, 59], [5, 62], [15, 69], [25, 71], [30, 70], [28, 66], [24, 65],
+    [18, 62], [18, 59], [12, 56], [8, 58],
+  ],
+  [
+    [-5, 50], [1, 51], [2, 53], [-2, 57], [-5, 58], [-6, 55], [-3, 54],
+    [-5, 52],
+  ],
+  [[-10, 52], [-6, 52], [-6, 55], [-10, 54]],
+  [[44, -25], [47, -25], [50, -15], [49, -12], [44, -17]],
+  [[130, 32], [135, 34], [141, 38], [142, 45], [140, 41], [136, 36]],
+  [[109, 1], [117, 7], [119, 1], [116, -4], [110, -3]],
+  [[95, 5], [104, -2], [106, -6], [100, -1]],
+  [
+    [114, -22], [122, -18], [130, -12], [137, -12], [142, -11], [146, -19],
+    [153, -27], [150, -37], [140, -38], [131, -31], [115, -34],
+  ],
+  [
+    [-55, 60], [-45, 60], [-20, 70], [-20, 82], [-60, 82], [-72, 76],
+    [-58, 68],
+  ],
+  [
+    [-168, 66], [-140, 70], [-95, 72], [-80, 68], [-62, 58], [-55, 50],
+    [-67, 45], [-76, 38], [-81, 31], [-80, 25], [-83, 29], [-90, 30],
+    [-97, 26], [-97, 20], [-87, 21], [-88, 15], [-83, 10], [-80, 8],
+    [-72, 12], [-60, 10], [-50, 0], [-35, -8], [-40, -22], [-48, -26],
+    [-57, -37], [-65, -42], [-68, -55], [-75, -50], [-72, -35], [-70, -18],
+    [-80, -3], [-77, 4], [-86, 11], [-95, 16], [-106, 23], [-110, 24],
+    [-117, 32], [-124, 40], [-124, 48], [-135, 58], [-150, 60], [-165, 60],
+  ],
+];
 
-  const landRegions = [
-    // India & South Asia (dense for local focus)
-    { minLat: 8, maxLat: 34, minLon: 69, maxLon: 89, step: 2.2 },
-    // East Asia & China
-    { minLat: 22, maxLat: 48, minLon: 95, maxLon: 125, step: 3.5 },
-    // Japan & Korea
-    { minLat: 32, maxLat: 44, minLon: 126, maxLon: 142, step: 2.8 },
-    // Southeast Asia & Indonesia
-    { minLat: -8, maxLat: 18, minLon: 96, maxLon: 130, step: 3.8 },
-    // Middle East
-    { minLat: 14, maxLat: 36, minLon: 36, maxLon: 62, step: 3.6 },
-    // Europe & UK
-    { minLat: 37, maxLat: 62, minLon: -9, maxLon: 36, step: 3.0 },
-    // Scandinavia
-    { minLat: 56, maxLat: 68, minLon: 5, maxLon: 28, step: 3.2 },
-    // North Africa
-    { minLat: 15, maxLat: 35, minLon: -14, maxLon: 38, step: 4.0 },
-    // Sub-Saharan Africa
-    { minLat: -34, maxLat: 14, minLon: 10, maxLon: 48, step: 4.2 },
-    // North America (US & Canada)
-    { minLat: 28, maxLat: 58, minLon: -124, maxLon: -72, step: 3.8 },
-    // Central America
-    { minLat: 10, maxLat: 26, minLon: -102, maxLon: -82, step: 3.2 },
-    // South America
-    { minLat: -52, maxLat: 10, minLon: -76, maxLon: -38, step: 4.0 },
-    // Australia
-    { minLat: -38, maxLat: -14, minLon: 114, maxLon: 152, step: 3.5 },
-    // New Zealand
-    { minLat: -46, maxLat: -35, minLon: 168, maxLon: 178, step: 2.5 },
-  ];
+const D = Math.PI / 180;
+const TOTAL = 32;
+const CYCLE = 22;
 
-  for (const reg of landRegions) {
-    for (let lat = reg.minLat; lat <= reg.maxLat; lat += reg.step) {
-      for (let lon = reg.minLon; lon <= reg.maxLon; lon += reg.step) {
-        // Add subtle organic jitter so dots form natural texture
-        const jLat = lat + (Math.sin(lat * 12.3 + lon * 7.1) * 0.4);
-        const jLon = lon + (Math.cos(lat * 8.7 + lon * 11.9) * 0.4);
-        points.push([jLat, jLon]);
+function inside(poly: [number, number][], x: number, y: number): boolean {
+  let c = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[i];
+    const b = poly[j];
+    if (
+      (a[1] > y) !== (b[1] > y) &&
+      x < ((b[0] - a[0]) * (y - a[1])) / (b[1] - a[1]) + a[0]
+    ) {
+      c = !c;
+    }
+  }
+  return c;
+}
+
+function vec(lat: number, lon: number): [number, number, number] {
+  const c = Math.cos(lat * D);
+  return [c * Math.cos(lon * D), c * Math.sin(lon * D), Math.sin(lat * D)];
+}
+
+// Generate dotted land surface points once at module level
+const dots: [number, number, number][] = [];
+const step = 1.4;
+for (let lat = -58; lat <= 82; lat += step) {
+  const ls = step / Math.max(Math.cos(lat * D), 0.15);
+  for (let lon = -180; lon < 180; lon += ls) {
+    for (let k = 0; k < LAND.length; k++) {
+      if (inside(LAND[k], lon, lat)) {
+        dots.push(vec(lat, lon));
+        break;
       }
     }
   }
-
-  return points;
 }
 
-export function InteractiveGlobe({ className = "" }: { className?: string }) {
+// Graticule meridians and parallels
+const GRAT: [number, number, number][][] = [];
+for (let a = -180; a < 180; a += 30) {
+  const m: [number, number, number][] = [];
+  for (let b = -84; b <= 84; b += 4) m.push(vec(b, a));
+  GRAT.push(m);
+}
+for (let b = -60; b <= 60; b += 30) {
+  const p: [number, number, number][] = [];
+  for (let a = -180; a <= 180; a += 4) p.push(vec(b, a));
+  GRAT.push(p);
+}
+
+// City coordinates and domain labels
+const CITIES: Record<string, [number, number]> = {
+  Nyeras: [12.97, 77.59],
+  London: [51.5, -0.1],
+  Lagos: [6.5, 3.4],
+  Johannesburg: [-26.2, 28],
+  Nairobi: [-1.3, 36.8],
+  Dubai: [25.2, 55.3],
+  Singapore: [1.35, 103.8],
+  Beijing: [39.9, 116.4],
+};
+
+const DEST = [
+  "Dubai",
+  "Singapore",
+  "Beijing",
+  "Nairobi",
+  "London",
+  "Johannesburg",
+  "Lagos",
+] as const;
+
+const SK: Record<string, string> = {
+  Dubai: "Data Analytics",
+  Singapore: "Full Stack",
+  Beijing: "Data Science",
+  Nairobi: "Cloud & DevOps",
+  London: "AI / ML",
+  Johannesburg: "UI/UX Design",
+  Lagos: "Cybersecurity",
+};
+
+const O = vec(CITIES.Nyeras[0], CITIES.Nyeras[1]);
+
+function view(
+  w: [number, number, number],
+  l0: number,
+  phi: number
+): [number, number, number] {
+  const s = Math.sin(l0 * D);
+  const c = Math.cos(l0 * D);
+  const X = w[0] * c + w[1] * s;
+  const Y = -w[0] * s + w[1] * c;
+  const Z = w[2];
+  const cp = Math.cos(phi);
+  const sp = Math.sin(phi);
+  return [Y, Z * cp - X * sp, X * cp + Z * sp];
+}
+
+function clamp(x: number) {
+  return Math.max(0, Math.min(1, x));
+}
+
+function io(t: number) {
+  return 0.5 - 0.5 * Math.cos(Math.PI * clamp(t));
+}
+
+function arcPoint(
+  a: [number, number, number],
+  b: [number, number, number],
+  om: number,
+  t: number,
+  h: number
+): [number, number, number] {
+  const s = Math.sin(om);
+  if (Math.abs(s) < 0.0001) return [a[0], a[1], a[2]];
+  const k1 = Math.sin((1 - t) * om) / s;
+  const k2 = Math.sin(t * om) / s;
+  const r = 1 + h * om * Math.sin(Math.PI * t);
+  return [
+    (a[0] * k1 + b[0] * k2) * r,
+    (a[1] * k1 + b[1] * k2) * r,
+    (a[2] * k1 + b[2] * k2) * r,
+  ];
+}
+
+function renderText(
+  ctx: CanvasRenderingContext2D,
+  txt: string,
+  x: number,
+  y: number,
+  al: CanvasTextAlign,
+  alpha: number,
+  size: number,
+  weight: number,
+  spacing: number,
+  color: string
+) {
+  ctx.font = `${weight} ${size}px Inter, system-ui, -apple-system, sans-serif`;
+  ctx.textAlign = al;
+  if ("letterSpacing" in ctx) {
+    (ctx as any).letterSpacing = `${spacing}px`;
+  }
+  ctx.fillStyle = color.replace("A", alpha.toFixed(3));
+  ctx.shadowColor = "rgba(2,6,30,0.95)";
+  ctx.shadowBlur = 8;
+  ctx.fillText(txt, x, y);
+  ctx.shadowBlur = 0;
+  if ("letterSpacing" in ctx) {
+    (ctx as any).letterSpacing = "0px";
+  }
+}
+
+export function InteractiveGlobe() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [isInteracting, setIsInteracting] = useState(false);
-  const [hasInteracted, setHasInteracted] = useState(false);
-  const [isDarkTheme, setIsDarkTheme] = useState(false);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const numRef = useRef<HTMLSpanElement | null>(null);
 
-  // Drag interaction state
-  const dragRef = useRef({
-    isDragging: false,
-    startX: 0,
-    startY: 0,
-    startRotX: 0.35,
-    startRotY: -1.2, // initially rotated towards India/Asia
-    rotX: 0.32,
-    rotY: -1.3,
-    velX: 0,
-    velY: 0,
-    lastMoveTime: 0,
-  });
+  // 3D rotation interactive state refs
+  const isDraggingRef = useRef(false);
+  const lastPosRef = useRef({ x: 0, y: 0 });
+  const userYawRef = useRef(0); // in degrees
+  const userPitchRef = useRef(0); // in radians
+  const velYawRef = useRef(0);
+  const velPitchRef = useRef(0);
+  const resetTargetRef = useRef<{ yaw: number; pitch: number } | null>(null);
 
-  // Track theme changes
-  useEffect(() => {
-    const checkTheme = () => {
-      setIsDarkTheme(document.documentElement.classList.contains("dark"));
-    };
-    checkTheme();
-    const observer = new MutationObserver(checkTheme);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
+  const [hasUserRotated, setHasUserRotated] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+
+  const handleReset = useCallback(() => {
+    resetTargetRef.current = { yaw: 0, pitch: 0 };
+    setHasUserRotated(false);
   }, []);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const cv = canvasRef.current;
+    const wrap = wrapRef.current;
+    const numEl = numRef.current;
+    if (!cv || !wrap || !numEl) return;
 
-    const ctx = canvas.getContext("2d", { alpha: true });
+    const ctx = cv.getContext("2d");
     if (!ctx) return;
 
-    const landPoints = generateLandPoints();
-    let animationFrameId = 0;
-    let time = 0;
+    let still = false;
+    try {
+      still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    } catch {
+      still = false;
+    }
 
-    // Helper: convert (lat, lon, radius) to 3D coords
-    const toCartesian = (lat: number, lon: number, radius: number): [number, number, number] => {
-      const phi = (90 - lat) * (Math.PI / 180);
-      const theta = (lon + 180) * (Math.PI / 180);
-      const x = -(radius * Math.sin(phi) * Math.cos(theta));
-      const z = radius * Math.sin(phi) * Math.sin(theta);
-      const y = radius * Math.cos(phi);
-      return [x, y, z];
-    };
+    let W = 0;
+    let H = 0;
+    let R = 0;
+    let cx = 0;
+    let cy = 0;
+    let dpr = 1;
+    const phi0 = 22 * D;
 
-    // Helper: rotate 3D point by (rotX, rotY)
-    const rotate3D = (x: number, y: number, z: number, rotX: number, rotY: number): [number, number, number] => {
-      // Rotate around X (pitch)
-      const cosX = Math.cos(rotX);
-      const sinX = Math.sin(rotX);
-      const y1 = y * cosX - z * sinX;
-      const z1 = y * sinX + z * cosX;
+    function resize() {
+      if (!cv) return;
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const r = cv.getBoundingClientRect();
+      W = r.width || 360;
+      H = r.height || 360;
+      cv.width = W * dpr;
+      cv.height = H * dpr;
+      ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+      R = Math.min(W, H) * 0.355;
+      cx = W / 2;
+      cy = H * 0.5;
+    }
 
-      // Rotate around Y (yaw)
-      const cosY = Math.cos(rotY);
-      const sinY = Math.sin(rotY);
-      const x2 = x * cosY + z1 * sinY;
-      const z2 = -x * sinY + z1 * cosY;
+    window.addEventListener("resize", resize);
+    resize();
 
-      return [x2, y1, z2];
-    };
+    function drawGlobe(l0: number, phi: number) {
+      if (!ctx) return;
 
-    // Render loop
-    const render = () => {
-      time += 0.016;
-
-      const rect = canvas.getBoundingClientRect();
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const width = rect.width;
-      const height = rect.height;
-
-      if (canvas.width !== width * dpr || canvas.height !== height * dpr) {
-        canvas.width = width * dpr;
-        canvas.height = height * dpr;
-      }
-
-      ctx.save();
-      ctx.scale(dpr, dpr);
-      ctx.clearRect(0, 0, width, height);
-
-      const cx = width / 2;
-      const cy = height / 2;
-      const radius = Math.min(width, height) * 0.40;
-
-      // Physics: handle auto-rotation and momentum inertia
-      const drag = dragRef.current;
-      if (!drag.isDragging) {
-        // Momentum decay
-        drag.rotY += drag.velX;
-        drag.rotX += drag.velY;
-        drag.velX *= 0.92;
-        drag.velY *= 0.92;
-
-        // Auto rotation when idle
-        const timeSinceMove = Date.now() - drag.lastMoveTime;
-        if (timeSinceMove > 1000) {
-          drag.rotY += 0.0022; // smooth steady spin
-        }
-      }
-
-      // Clamp pitch so the globe doesn't invert
-      drag.rotX = Math.max(-0.75, Math.min(0.75, drag.rotX));
-
-      const rotX = drag.rotX;
-      const rotY = drag.rotY;
-
-      // 1. Atmosphere Halo Gradient
-      const haloGrad = ctx.createRadialGradient(cx, cy, radius * 0.88, cx, cy, radius * 1.35);
-      if (isDarkTheme) {
-        haloGrad.addColorStop(0, "rgba(37, 211, 102, 0.22)");
-        haloGrad.addColorStop(0.5, "rgba(37, 211, 102, 0.06)");
-        haloGrad.addColorStop(1, "transparent");
-      } else {
-        haloGrad.addColorStop(0, "rgba(37, 211, 102, 0.16)");
-        haloGrad.addColorStop(0.5, "rgba(16, 185, 129, 0.04)");
-        haloGrad.addColorStop(1, "transparent");
-      }
-      ctx.fillStyle = haloGrad;
+      // Outer atmospheric radial halo
+      const g = ctx.createRadialGradient(cx, cy, R * 0.98, cx, cy, R * 1.45);
+      g.addColorStop(0, "rgba(80,130,255,0.30)");
+      g.addColorStop(0.4, "rgba(50,90,220,0.10)");
+      g.addColorStop(1, "rgba(30,60,180,0)");
+      ctx.fillStyle = g;
       ctx.beginPath();
-      ctx.arc(cx, cy, radius * 1.35, 0, Math.PI * 2);
+      ctx.arc(cx, cy, R * 1.45, 0, Math.PI * 2);
       ctx.fill();
 
-      // 2. Globe Sphere Shading
-      const sphereGrad = ctx.createRadialGradient(
-        cx - radius * 0.35,
-        cy - radius * 0.35,
-        radius * 0.1,
+      // Globe sphere body
+      const bd = ctx.createRadialGradient(
+        cx - R * 0.35,
+        cy - R * 0.4,
+        R * 0.05,
         cx,
         cy,
-        radius
+        R
       );
-      if (isDarkTheme) {
-        sphereGrad.addColorStop(0, "rgba(12, 28, 18, 0.90)");
-        sphereGrad.addColorStop(0.7, "rgba(6, 16, 10, 0.95)");
-        sphereGrad.addColorStop(1, "rgba(4, 10, 6, 0.98)");
-      } else {
-        sphereGrad.addColorStop(0, "rgba(255, 255, 255, 0.95)");
-        sphereGrad.addColorStop(0.65, "rgba(240, 250, 244, 0.92)");
-        sphereGrad.addColorStop(1, "rgba(215, 245, 226, 0.90)");
-      }
-      ctx.fillStyle = sphereGrad;
+      bd.addColorStop(0, "#13306f");
+      bd.addColorStop(0.6, "#0a1b4d");
+      bd.addColorStop(1, "#071236");
+      ctx.fillStyle = bd;
       ctx.beginPath();
-      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.arc(cx, cy, R, 0, Math.PI * 2);
       ctx.fill();
 
-      // Globe edge rim outline
-      ctx.strokeStyle = isDarkTheme ? "rgba(37, 211, 102, 0.40)" : "rgba(37, 211, 102, 0.45)";
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
+      // Atmosphere rim glow
+      const rim = ctx.createRadialGradient(cx, cy, R * 0.8, cx, cy, R);
+      rim.addColorStop(0, "rgba(90,150,255,0)");
+      rim.addColorStop(1, "rgba(110,165,255,0.32)");
+      ctx.fillStyle = rim;
+      ctx.beginPath();
+      ctx.arc(cx, cy, R, 0, Math.PI * 2);
+      ctx.fill();
 
-      // 3. Render Land Matrix Points
-      for (let i = 0; i < landPoints.length; i++) {
-        const [lat, lon] = landPoints[i];
-        const [x3, y3, z3] = toCartesian(lat, lon, radius);
-        const [rx, ry, rz] = rotate3D(x3, y3, z3, rotX, rotY);
-
-        const screenX = cx + rx;
-        const screenY = cy + ry;
-
-        if (rz > 0) {
-          // Front hemisphere: bright & sharp
-          const normZ = rz / radius;
-          const dotSize = 1.1 + normZ * 1.1;
-          const alpha = 0.35 + normZ * 0.65;
-
-          ctx.fillStyle = isDarkTheme
-            ? `rgba(52, 211, 153, ${alpha})`
-            : `rgba(18, 138, 62, ${alpha * 0.85})`;
-
-          ctx.beginPath();
-          ctx.arc(screenX, screenY, dotSize, 0, Math.PI * 2);
-          ctx.fill();
-        } else {
-          // Back hemisphere: faint translucent holographic dots
-          const backAlpha = isDarkTheme ? 0.08 : 0.06;
-          ctx.fillStyle = `rgba(37, 211, 102, ${backAlpha})`;
-          ctx.beginPath();
-          ctx.arc(screenX, screenY, 0.85, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-
-      // Pre-calculate city 3D positions
-      const cityCoords = new Map<string, { rx: number; ry: number; rz: number; screenX: number; screenY: number }>();
-      for (const city of CITIES) {
-        const [x3, y3, z3] = toCartesian(city.lat, city.lon, radius);
-        const [rx, ry, rz] = rotate3D(x3, y3, z3, rotX, rotY);
-        cityCoords.set(city.name, {
-          rx,
-          ry,
-          rz,
-          screenX: cx + rx,
-          screenY: cy + ry,
-        });
-      }
-
-      // 4. Render Curved 3D Arcs & Traveling Photons
-      for (const arc of ARCS) {
-        const p1 = cityCoords.get(arc.from);
-        const p2 = cityCoords.get(arc.to);
-        if (!p1 || !p2) continue;
-
-        const city1 = CITIES.find((c) => c.name === arc.from)!;
-        const city2 = CITIES.find((c) => c.name === arc.to)!;
-
-        // Draw multi-segment 3D curve
-        const segments = 36;
-        const curvePoints: { x: number; y: number; z: number }[] = [];
-
-        for (let s = 0; s <= segments; s++) {
-          const t = s / segments;
-          // Interpolate lat/lon
-          const lat = city1.lat + (city2.lat - city1.lat) * t;
-          let dLon = city2.lon - city1.lon;
-          if (dLon > 180) dLon -= 360;
-          if (dLon < -180) dLon += 360;
-          const lon = city1.lon + dLon * t;
-
-          // Parabolic height altitude curve
-          const altFactor = Math.sin(t * Math.PI);
-          const currentR = radius * (1 + arc.altitude * altFactor);
-
-          const [x3, y3, z3] = toCartesian(lat, lon, currentR);
-          const [rx, ry, rz] = rotate3D(x3, y3, z3, rotX, rotY);
-
-          curvePoints.push({ x: cx + rx, y: cy + ry, z: rz });
-        }
-
-        // Draw the static arc trajectory
+      // Graticule coordinates lines
+      ctx.lineWidth = 0.6;
+      ctx.strokeStyle = "rgba(170,200,255,0.07)";
+      GRAT.forEach((line) => {
         ctx.beginPath();
-        let anyVisible = false;
-        for (let s = 0; s < curvePoints.length; s++) {
-          const pt = curvePoints[s];
-          if (pt.z > -radius * 0.25) {
-            anyVisible = true;
+        let pen = false;
+        line.forEach((w) => {
+          const v = view(w, l0, phi);
+          if (v[2] <= 0) {
+            pen = false;
+            return;
           }
-          if (s === 0) {
-            ctx.moveTo(pt.x, pt.y);
-          } else {
-            ctx.lineTo(pt.x, pt.y);
-          }
-        }
+          const qx = cx + v[0] * R;
+          const qy = cy - v[1] * R;
+          if (pen) ctx.lineTo(qx, qy);
+          else ctx.moveTo(qx, qy);
+          pen = true;
+        });
+        ctx.stroke();
+      });
 
-        if (anyVisible) {
-          const arcAlpha = isDarkTheme ? 0.35 : 0.28;
-          ctx.strokeStyle = arc.color;
-          ctx.globalAlpha = arcAlpha;
-          ctx.lineWidth = 1.3;
-          ctx.stroke();
-          ctx.globalAlpha = 1.0;
-        }
-
-        // Draw traveling photon pulse
-        const pulseProgress = (time * arc.speed * 60 + arc.offset) % 1;
-        const pulseIdx = Math.floor(pulseProgress * (curvePoints.length - 1));
-        const pulsePt = curvePoints[pulseIdx];
-
-        if (pulsePt && pulsePt.z > -radius * 0.15) {
-          const pulseNorm = Math.max(0.2, (pulsePt.z + radius) / (radius * 2));
-
-          // Outer pulse glow
-          ctx.fillStyle = arc.color;
-          ctx.shadowColor = arc.color;
-          ctx.shadowBlur = 10;
-          ctx.beginPath();
-          ctx.arc(pulsePt.x, pulsePt.y, 3.2 * pulseNorm, 0, Math.PI * 2);
-          ctx.fill();
-
-          // Inner bright core
-          ctx.fillStyle = "#ffffff";
-          ctx.beginPath();
-          ctx.arc(pulsePt.x, pulsePt.y, 1.6 * pulseNorm, 0, Math.PI * 2);
-          ctx.fill();
-
-          ctx.shadowBlur = 0; // reset
-        }
+      // Dotted continents
+      for (let i = 0; i < dots.length; i++) {
+        const v = view(dots[i], l0, phi);
+        if (v[2] <= 0.02) continue;
+        const qx = cx + v[0] * R;
+        const qy = cy - v[1] * R;
+        const al = 0.14 + 0.66 * Math.pow(v[2], 0.75);
+        ctx.fillStyle = `rgba(212,228,255,${al.toFixed(2)})`;
+        ctx.fillRect(qx - 0.75, qy - 0.75, 1.5, 1.5);
       }
 
-      // 5. Render City Nodes & Pulsing Radar Rings
-      for (const city of CITIES) {
-        const coord = cityCoords.get(city.name);
-        if (!coord) continue;
+      // Outer illuminated limb edge
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = "rgba(150,190,255,0.6)";
+      ctx.shadowColor = "rgba(90,140,255,0.7)";
+      ctx.shadowBlur = 16;
+      ctx.beginPath();
+      ctx.arc(cx, cy, R, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
 
-        if (coord.rz > 0) {
-          const normZ = coord.rz / radius;
+    function drawArcs(t: number, l0: number, phi: number) {
+      if (!ctx) return;
+      const scr = (v: [number, number, number]): [number, number] => [
+        cx + v[0] * R,
+        cy - v[1] * R,
+      ];
+      const fs = Math.max(10, R * 0.058);
 
-          // Pulsing concentric ripple ring
-          const ringProgress = (time * 1.5 + (city.lat * 0.1)) % 1;
-          const ringRadius = 3 + ringProgress * 14;
-          const ringAlpha = (1 - ringProgress) * 0.65 * normZ;
+      DEST.forEach((name, i) => {
+        const d = vec(CITIES[name][0], CITIES[name][1]);
+        const dotProduct = Math.max(
+          -1,
+          Math.min(1, O[0] * d[0] + O[1] * d[1] + O[2] * d[2])
+        );
+        const om = Math.acos(dotProduct);
+        const st = 2.2 + i * 1.15;
+        const dur = 3.8;
+        const p = io((t - st) / dur);
+        if (p <= 0) return;
 
-          ctx.strokeStyle = city.isHQ ? "#25D366" : "#06b6d4";
-          ctx.lineWidth = 1.2;
-          ctx.globalAlpha = ringAlpha;
+        const settle = 1 - 0.4 * io((t - st - dur) / 2.5);
+        const n = Math.max(2, Math.floor(80 * p));
+        let last: { x: number; y: number; vis: boolean } | null = null;
+        let head: [number, number] | null = null;
+
+        ctx.lineCap = "round";
+        ctx.lineWidth = 1.25;
+
+        for (let s = 0; s <= n; s++) {
+          const u = (p * s) / n;
+          const v = view(arcPoint(O, d, om, u, 0.28), l0, phi);
+          const vis = v[2] > 0 || v[0] * v[0] + v[1] * v[1] > 1;
+          const q = scr(v);
+          if (last && vis && last.vis) {
+            ctx.strokeStyle = `rgba(244,214,170,${((0.18 + 0.72 * (s / n)) * settle).toFixed(3)})`;
+            ctx.beginPath();
+            ctx.moveTo(last.x, last.y);
+            ctx.lineTo(q[0], q[1]);
+            ctx.stroke();
+          }
+          last = { x: q[0], y: q[1], vis };
+          if (vis) head = q;
+        }
+
+        // Glowing photon head on leading edge
+        if (p < 1 && head) {
+          const hg = ctx.createRadialGradient(
+            head[0],
+            head[1],
+            0,
+            head[0],
+            head[1],
+            11
+          );
+          hg.addColorStop(0, "rgba(255,236,200,0.95)");
+          hg.addColorStop(0.35, "rgba(244,214,170,0.35)");
+          hg.addColorStop(1, "rgba(244,214,170,0)");
+          ctx.fillStyle = hg;
           ctx.beginPath();
-          ctx.arc(coord.screenX, coord.screenY, ringRadius, 0, Math.PI * 2);
-          ctx.stroke();
-          ctx.globalAlpha = 1.0;
-
-          // Solid city core
-          ctx.fillStyle = city.isHQ ? "#25D366" : "#38bdf8";
-          ctx.beginPath();
-          ctx.arc(coord.screenX, coord.screenY, city.isHQ ? 3.8 : 2.8, 0, Math.PI * 2);
+          ctx.arc(head[0], head[1], 11, 0, Math.PI * 2);
           ctx.fill();
+        }
 
-          // Center white shine
-          ctx.fillStyle = "#ffffff";
-          ctx.beginPath();
-          ctx.arc(coord.screenX, coord.screenY, 1.5, 0, Math.PI * 2);
-          ctx.fill();
+        // Destination ripples and skill badge once landed
+        const ta = t - st - dur;
+        if (ta > 0) {
+          const dv = view(d, l0, phi);
+          const e = scr(dv);
+          if (dv[2] > 0) {
+            const la = io(ta / 1.6);
+            const pr = (ta * 0.22) % 1;
+            ctx.strokeStyle = `rgba(244,214,170,${((1 - pr) * 0.35 * la).toFixed(3)})`;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(e[0], e[1], 3 + pr * 13, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.fillStyle = `rgba(248,236,212,${la.toFixed(3)})`;
+            ctx.beginPath();
+            ctx.arc(e[0], e[1], 2.6, 0, Math.PI * 2);
+            ctx.fill();
 
-          // City Label for HQ or major nodes when facing forward
-          if (normZ > 0.55 && (city.isHQ || city.name === "London" || city.name === "San Francisco" || city.name === "Singapore")) {
-            ctx.font = "600 10.5px var(--font-sans), sans-serif";
-            ctx.fillStyle = isDarkTheme ? "#f1f5f9" : "#0f172a";
-            ctx.shadowColor = isDarkTheme ? "rgba(0,0,0,0.8)" : "rgba(255,255,255,0.9)";
-            ctx.shadowBlur = 4;
-            ctx.fillText(city.name, coord.screenX + 8, coord.screenY + 3.5);
-            ctx.shadowBlur = 0;
+            const rt = e[0] > cx + R * 0.12;
+            if (name === "Singapore") {
+              renderText(
+                ctx,
+                SK[name].toUpperCase(),
+                e[0] + 10,
+                e[1] + 4,
+                "left",
+                la * 0.9,
+                fs,
+                500,
+                1.4,
+                "rgba(240,244,255,A)"
+              );
+            } else if (name === "Lagos") {
+              renderText(
+                ctx,
+                SK[name].toUpperCase(),
+                e[0] - 14,
+                e[1] + 20,
+                "left",
+                la * 0.9,
+                fs,
+                500,
+                1.4,
+                "rgba(240,244,255,A)"
+              );
+            } else {
+              renderText(
+                ctx,
+                SK[name].toUpperCase(),
+                e[0] - 10,
+                e[1] + (rt ? -9 : 4),
+                "right",
+                la * 0.9,
+                fs,
+                500,
+                1.4,
+                "rgba(240,244,255,A)"
+              );
+            }
           }
         }
+      });
+
+      // Bangalore / Nyeras Origin Beacon
+      const lo = scr(view(O, l0, phi));
+      for (let k = 0; k < 2; k++) {
+        const pr = (t * 0.16 + k * 0.5) % 1;
+        ctx.strokeStyle = `rgba(244,214,170,${((1 - pr) * 0.45).toFixed(3)})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(lo[0], lo[1], 5 + pr * 24, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      const og = ctx.createRadialGradient(lo[0], lo[1], 0, lo[0], lo[1], 14);
+      og.addColorStop(0, "rgba(255,236,200,0.9)");
+      og.addColorStop(1, "rgba(244,214,170,0)");
+      ctx.fillStyle = og;
+      ctx.beginPath();
+      ctx.arc(lo[0], lo[1], 14, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#fff6e4";
+      ctx.beginPath();
+      ctx.arc(lo[0], lo[1], 3.4, 0, Math.PI * 2);
+      ctx.fill();
+
+      renderText(
+        ctx,
+        "NYERAS",
+        lo[0] + 14,
+        lo[1] + 32,
+        "left",
+        1,
+        fs * 1.05,
+        600,
+        3,
+        "rgba(244,222,180,A)"
+      );
+    }
+
+    let animId: number;
+
+    function frame(ms: number) {
+      const T = ms / 1000;
+      const t = still ? 17 : T % CYCLE;
+
+      // Wrap opacity animation from original spec (kept gracefully visible while interacting)
+      const m = still ? 1 : io(t / 1.8) * (1 - io((t - 18.2) / 2.8));
+      const targetOpacity = isDraggingRef.current ? 1 : Math.max(0.65, m);
+      if (wrap) {
+        wrap.style.opacity = targetOpacity.toFixed(3);
       }
 
-      ctx.restore();
-      animationFrameId = requestAnimationFrame(render);
-    };
+      // Handle animated reset if requested
+      if (resetTargetRef.current) {
+        userYawRef.current += (resetTargetRef.current.yaw - userYawRef.current) * 0.1;
+        userPitchRef.current +=
+          (resetTargetRef.current.pitch - userPitchRef.current) * 0.1;
+        if (
+          Math.abs(userYawRef.current) < 0.2 &&
+          Math.abs(userPitchRef.current) < 0.005
+        ) {
+          userYawRef.current = 0;
+          userPitchRef.current = 0;
+          resetTargetRef.current = null;
+        }
+      } else if (!isDraggingRef.current) {
+        // Inertia physics decay
+        userYawRef.current += velYawRef.current;
+        userPitchRef.current += velPitchRef.current;
+        velYawRef.current *= 0.94;
+        velPitchRef.current *= 0.94;
+        if (Math.abs(velYawRef.current) < 0.002) velYawRef.current = 0;
+        if (Math.abs(velPitchRef.current) < 0.0001) velPitchRef.current = 0;
+      }
 
-    animationFrameId = requestAnimationFrame(render);
+      // Pitch angle clamping (-65deg to +75deg)
+      const minPitch = -55 * D - phi0;
+      const maxPitch = 65 * D - phi0;
+      userPitchRef.current = Math.max(
+        minPitch,
+        Math.min(maxPitch, userPitchRef.current)
+      );
+
+      // Automated rotation + user drag yaw offset
+      const baseL0 = still ? 55 : 100 - 72 * (t / CYCLE);
+      const l0 = baseL0 + userYawRef.current;
+      const phi = phi0 + userPitchRef.current;
+
+      // Clear & redraw
+      ctx!.clearRect(0, 0, W, H);
+      drawGlobe(l0, phi);
+      drawArcs(t, l0, phi);
+
+      // Counter animation
+      if (numEl) {
+        const countVal = Math.round(TOTAL * io((t - 2.2) / 8));
+        numEl.textContent = String(countVal);
+      }
+
+      animId = requestAnimationFrame(frame);
+    }
+
+    animId = requestAnimationFrame(frame);
 
     return () => {
-      cancelAnimationFrame(animationFrameId);
+      cancelAnimationFrame(animId);
+      window.removeEventListener("resize", resize);
     };
-  }, [isDarkTheme]);
+  }, []);
 
-  // Pointer Drag Handlers
+  // Pointer event handlers for 3D rotation direct manipulation
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    const drag = dragRef.current;
-    drag.isDragging = true;
-    drag.startX = e.clientX;
-    drag.startY = e.clientY;
-    drag.startRotX = drag.rotX;
-    drag.startRotY = drag.rotY;
-    drag.velX = 0;
-    drag.velY = 0;
-    drag.lastMoveTime = Date.now();
-    setIsInteracting(true);
-    setHasInteracted(true);
+    isDraggingRef.current = true;
+    lastPosRef.current = { x: e.clientX, y: e.clientY };
+    velYawRef.current = 0;
+    velPitchRef.current = 0;
+    resetTargetRef.current = null;
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    const drag = dragRef.current;
-    if (!drag.isDragging) return;
+    if (!isDraggingRef.current) return;
+    const dx = e.clientX - lastPosRef.current.x;
+    const dy = e.clientY - lastPosRef.current.y;
+    lastPosRef.current = { x: e.clientX, y: e.clientY };
 
-    const dx = e.clientX - drag.startX;
-    const dy = e.clientY - drag.startY;
+    // Sensitivity calibrated for tactile, natural finger / cursor tracking
+    const degPerPx = 0.42;
+    userYawRef.current -= dx * degPerPx;
+    userPitchRef.current += dy * 0.006;
 
-    const newRotY = drag.startRotY + dx * 0.0055;
-    const newRotX = drag.startRotX + dy * 0.0055;
+    velYawRef.current = -dx * degPerPx;
+    velPitchRef.current = dy * 0.006;
 
-    // Track instant velocity for inertia
-    drag.velX = (newRotY - drag.rotY) * 0.35;
-    drag.velY = (newRotX - drag.rotX) * 0.35;
-
-    drag.rotY = newRotY;
-    drag.rotX = newRotX;
-    drag.lastMoveTime = Date.now();
+    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+      if (!hasUserRotated) setHasUserRotated(true);
+    }
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    dragRef.current.isDragging = false;
-    dragRef.current.lastMoveTime = Date.now();
-    setIsInteracting(false);
+    isDraggingRef.current = false;
     try {
       (e.target as HTMLElement).releasePointerCapture(e.pointerId);
     } catch {
-      // ignore
+      // Ignored
     }
   };
 
   return (
-    <div className={`relative flex items-center justify-center w-full aspect-square max-w-[540px] mx-auto select-none ${className}`}>
-      {/* 3D Canvas Sphere */}
-      <canvas
-        ref={canvasRef}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-        className={`w-full h-full block cursor-grab ${isInteracting ? "cursor-grabbing" : ""}`}
-        style={{ touchAction: "none" }}
-      />
+    <div
+      ref={wrapRef}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className="relative w-full max-w-[460px] sm:max-w-[490px] xl:max-w-[530px] rounded-3xl overflow-hidden border border-sky-900/40 bg-gradient-to-b from-[#0d1d4d]/90 via-[#071033]/90 to-[#02040f]/95 shadow-2xl p-4 sm:p-6 flex flex-col items-center select-none transition-all duration-500 backdrop-blur-xl"
+    >
+      {/* Top ambient highlight */}
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/40 to-transparent pointer-events-none" />
 
-      {/* Floating Badge 1: Top-Left Network Status */}
-      <div className="absolute top-2 left-2 sm:top-4 sm:left-4 z-20 flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-white/85 dark:bg-[#0c1610]/85 backdrop-blur-xl border border-slate-200/80 dark:border-white/10 shadow-lg shadow-emerald-900/10 pointer-events-none transition-transform duration-300 hover:scale-105">
-        <span className="relative flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+      {/* Typography Header */}
+      <div className="text-[11px] tracking-[0.5em] -mr-[0.5em] font-medium uppercase text-[#ecd6aa]/85">
+        Skills launched
+      </div>
+
+      <div className="flex items-baseline gap-3 mt-3">
+        <span
+          ref={numRef}
+          className="num font-light text-6xl sm:text-7xl xl:text-8xl leading-none tabular-nums text-[#f8f1e2] drop-shadow-[0_0_35px_rgba(140,180,255,0.25)]"
+          style={{ fontFamily: '"Cormorant Garamond", Georgia, serif' }}
+        >
+          0
         </span>
-        <div className="flex flex-col">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-            Global Skills Radar
-          </span>
-          <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-            72 Academic Domains
-          </span>
-        </div>
+        <span
+          className="unit italic font-normal text-2xl sm:text-3xl text-[#f8f1e2]/80"
+          style={{ fontFamily: '"Cormorant Garamond", Georgia, serif' }}
+        >
+          skills
+        </span>
       </div>
 
-      {/* Floating Badge 2: Bottom-Right Pan-India Benchmark */}
-      <div className="absolute bottom-4 right-2 sm:bottom-6 sm:right-4 z-20 flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl bg-white/85 dark:bg-[#0c1610]/85 backdrop-blur-xl border border-slate-200/80 dark:border-white/10 shadow-lg shadow-emerald-900/10 pointer-events-none transition-transform duration-300 hover:scale-105">
-        <div className="p-1.5 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-          <ShieldCheck className="w-4 h-4" />
-        </div>
-        <div className="flex flex-col">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-            Pan-India & Global
-          </span>
-          <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-            144 Proctored Exams
-          </span>
-        </div>
-      </div>
+      {/* Subtle gold separator rule */}
+      <div className="w-[72px] h-[1px] mt-4 bg-gradient-to-r from-transparent via-[#ecd6aa]/80 to-transparent" />
 
-      {/* Interactive Drag Hint Pill (fades after first drag) */}
-      <div
-        className={`absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/80 dark:bg-white/90 text-white dark:text-slate-900 text-[11px] font-medium backdrop-blur-md transition-opacity duration-700 pointer-events-none shadow-md ${
-          hasInteracted ? "opacity-0" : "opacity-90 animate-pulse"
-        }`}
-      >
-        <Move className="w-3.5 h-3.5" />
-        <span>Drag to rotate globe</span>
+      {/* 3D Dotted Canvas with Arcs */}
+      <div className="relative w-full aspect-square max-w-[420px] flex items-center justify-center -mt-1 cursor-grab active:cursor-grabbing">
+        <canvas
+          ref={canvasRef}
+          role="img"
+          aria-label="Dotted globe with elegant arcs from Nyeras in Bangalore to skill domains around the world"
+          className="w-full h-full block touch-none"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+        />
+
+        {/* Floating 3D Rotation Interaction Badge */}
+        <div
+          className={`absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#071236]/80 backdrop-blur-md border border-sky-600/30 text-[11px] text-sky-200/80 shadow-lg transition-all duration-300 pointer-events-auto ${
+            isHovered || hasUserRotated ? "opacity-100" : "opacity-75"
+          }`}
+        >
+          <Compass size={13} className="text-amber-300 animate-pulse" />
+          <span>Drag to rotate in 3D</span>
+          {hasUserRotated && (
+            <button
+              onClick={handleReset}
+              className="ml-1 inline-flex items-center gap-1 text-[11px] font-medium text-amber-300 hover:text-white transition-colors bg-amber-400/10 hover:bg-amber-400/20 px-2 py-0.5 rounded-full"
+              title="Reset orientation to Bangalore view"
+            >
+              <RotateCcw size={10} />
+              Reset
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
 }
+export default InteractiveGlobe;
