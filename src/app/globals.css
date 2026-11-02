@@ -203,6 +203,7 @@
 .dark .hero-copy h1 em {
   font-style: normal;
   background: linear-gradient(135deg, #86f8b6 0%, #25D366 50%, #38bdf8 100%);
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
