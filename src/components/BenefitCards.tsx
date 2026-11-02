@@ -27,12 +27,12 @@ const BENEFIT_ITEMS: BenefitCardData[] = [
     text: "A section-wise diagnostic report turns your results into a clear picture of what comes next.",
     badge: "Diagnostic Report",
     icon: BarChart3,
-    accentColor: "#10b981",
-    iconColor: "text-emerald-500 dark:text-emerald-400",
-    iconBg: "bg-emerald-500/10 dark:bg-emerald-500/20",
-    badgeBg: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20",
-    borderColor: "hover:border-emerald-500/50 hover:shadow-emerald-500/15",
-    glowColor: "rgba(16, 185, 129, 0.16)",
+    accentColor: "#2563eb",
+    iconColor: "text-blue-600 dark:text-blue-400",
+    iconBg: "bg-blue-500/10 dark:bg-blue-500/20",
+    badgeBg: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20",
+    borderColor: "hover:border-blue-500/50 hover:shadow-blue-500/15",
+    glowColor: "rgba(37, 99, 235, 0.16)",
     microVisual: { type: "bars" },
   },
   {
@@ -138,7 +138,7 @@ export function BenefitCards() {
                   {item.badge}
                 </span>
 
-                <h3 className="font-display text-xl font-bold tracking-tight text-slate-900 dark:text-white mb-3 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                <h3 className="font-display text-xl font-bold tracking-tight text-slate-900 dark:text-white mb-3 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                   {item.title}
                 </h3>
 
@@ -153,17 +153,17 @@ export function BenefitCards() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
                       <span>Quantitative Aptitude</span>
-                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">92%</span>
+                      <span className="font-semibold text-blue-600 dark:text-blue-400">92%</span>
                     </div>
                     <div className="h-1.5 w-full bg-slate-200/70 dark:bg-white/10 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-500 rounded-full transition-all duration-700 ease-out group-hover:w-[92%] w-[75%]" />
+                      <div className="h-full bg-blue-600 dark:bg-blue-500 rounded-full transition-all duration-700 ease-out group-hover:w-[92%] w-[75%]" />
                     </div>
                     <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
                       <span>Technical Core</span>
-                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">88%</span>
+                      <span className="font-semibold text-blue-600 dark:text-blue-400">88%</span>
                     </div>
                     <div className="h-1.5 w-full bg-slate-200/70 dark:bg-white/10 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-500 rounded-full transition-all duration-700 ease-out group-hover:w-[88%] w-[68%]" />
+                      <div className="h-full bg-blue-600 dark:bg-blue-500 rounded-full transition-all duration-700 ease-out group-hover:w-[88%] w-[68%]" />
                     </div>
                   </div>
                 )}

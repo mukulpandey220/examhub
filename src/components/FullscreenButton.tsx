@@ -60,7 +60,7 @@ export function FullscreenButton({
         onClick={handleToggle}
         className={`px-3 py-1.5 rounded-full text-xs font-mono font-bold flex items-center space-x-1.5 border transition-all ${
           isFullscreen
-            ? "bg-emerald-950/60 text-emerald-400 border-emerald-500/30 hover:bg-emerald-900/50"
+            ? "bg-blue-950/60 text-blue-400 border-blue-500/30 hover:bg-blue-900/50"
             : "bg-amber-950/60 text-amber-400 border-amber-500/50 hover:bg-amber-900/60 animate-pulse"
         } ${className}`}
         aria-label={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}

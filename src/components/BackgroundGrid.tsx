@@ -48,15 +48,15 @@ export function BackgroundGrid() {
       <div
         className="absolute top-0 right-0 w-[950px] h-[560px] pointer-events-none opacity-80 dark:opacity-95 transition-opacity"
         style={{
-          background: "var(--ambient-radial, radial-gradient(ellipse at 88% 0%, rgba(37, 211, 102, 0.18), transparent 65%))",
+          background: "var(--ambient-radial, radial-gradient(ellipse at 88% 0%, rgba(37, 99, 235, 0.18), transparent 65%))",
         }}
       />
 
-      {/* Mid-left brand emerald aura (blends the green brand elements with navy) */}
+      {/* Mid-left brand sapphire navy aura (blends with midnight blue) */}
       <div
         className="absolute top-[16%] left-[2%] w-[600px] h-[600px] pointer-events-none rounded-full opacity-0 dark:opacity-75 transition-opacity"
         style={{
-          background: "radial-gradient(circle, rgba(37, 211, 102, 0.08) 0%, rgba(16, 120, 60, 0.03) 45%, transparent 70%)",
+          background: "radial-gradient(circle, rgba(37, 99, 235, 0.12) 0%, rgba(30, 64, 175, 0.05) 45%, transparent 70%)",
           filter: "blur(60px)",
         }}
       />

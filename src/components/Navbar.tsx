@@ -293,7 +293,7 @@ export function Navbar() {
                   }`}
                 >
                   <span>{link.label}</span>
-                  {active && <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />}
+                  {active && <span className="h-1.5 w-1.5 rounded-full bg-blue-600 dark:bg-sky-400" />}
                 </Link>
               );
             })}

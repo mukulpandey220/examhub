@@ -277,11 +277,11 @@ export function InteractiveGlobe() {
     function drawGlobe(l0: number, phi: number) {
       if (!ctx) return;
 
-      // Outer atmospheric radial halo with emerald & sapphire chromatic blend
+      // Outer atmospheric radial halo with electric & navy blue chromatic blend
       const g = ctx.createRadialGradient(cx, cy, R * 0.98, cx, cy, R * 1.55);
       g.addColorStop(0, "rgba(80,140,255,0.32)");
-      g.addColorStop(0.35, "rgba(50,110,230,0.14)");
-      g.addColorStop(0.7, "rgba(37,211,102,0.06)");
+      g.addColorStop(0.35, "rgba(50,110,230,0.18)");
+      g.addColorStop(0.7, "rgba(37,99,235,0.08)");
       g.addColorStop(1, "rgba(20,40,120,0)");
       ctx.fillStyle = g;
       ctx.beginPath();
@@ -636,7 +636,7 @@ export function InteractiveGlobe() {
         className="absolute -inset-4 sm:-inset-6 -z-10 rounded-[38px] opacity-80 pointer-events-none transition-opacity"
         style={{
           background:
-            "radial-gradient(circle at 50% 50%, rgba(56, 130, 255, 0.22) 0%, rgba(37, 211, 102, 0.08) 50%, transparent 75%)",
+            "radial-gradient(circle at 50% 50%, rgba(56, 130, 255, 0.25) 0%, rgba(30, 64, 175, 0.12) 50%, transparent 75%)",
           filter: "blur(40px)",
         }}
       />

@@ -40,17 +40,17 @@ export function PricingCards({ highlightId = "plan-backlog-addon", className = "
       case "plan-free":
         return {
           icon: Sparkles,
-          iconColor: "text-emerald-600 dark:text-emerald-400",
-          iconBg: "bg-emerald-500/10 dark:bg-emerald-500/20",
-          accentColor: "#10b981",
-          spotlightColor: "rgba(16, 185, 129, 0.14)",
+          iconColor: "text-blue-600 dark:text-blue-400",
+          iconBg: "bg-blue-500/10 dark:bg-blue-500/20",
+          accentColor: "#2563eb",
+          spotlightColor: "rgba(37, 99, 235, 0.14)",
           discountLabel: "Free Forever",
-          discountBg: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20",
-          badgeColor: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/25",
+          discountBg: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20",
+          badgeColor: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/25",
           btnClass: "bg-slate-900 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100 shadow-sm",
           ctaText: "Start free",
           href: "/checkout/plan-free",
-          borderHover: "hover:border-emerald-500/50 hover:shadow-emerald-500/10",
+          borderHover: "hover:border-blue-500/50 hover:shadow-blue-500/10",
         };
       case "plan-seven-day":
         return {
@@ -86,17 +86,17 @@ export function PricingCards({ highlightId = "plan-backlog-addon", className = "
       default:
         return {
           icon: ShieldCheck,
-          iconColor: "text-emerald-700 dark:text-emerald-400",
-          iconBg: "bg-emerald-500/15 dark:bg-emerald-500/25",
-          accentColor: "#25D366",
-          spotlightColor: "rgba(37, 211, 102, 0.22)",
+          iconColor: "text-blue-700 dark:text-blue-300",
+          iconBg: "bg-blue-500/15 dark:bg-blue-500/25",
+          accentColor: "#1d4ed8",
+          spotlightColor: "rgba(37, 99, 235, 0.22)",
           discountLabel: "Save 67%",
-          discountBg: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border-emerald-500/30",
-          badgeColor: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border-emerald-500/30",
-          btnClass: "bg-gradient-to-r from-emerald-500 via-teal-500 to-green-600 text-slate-950 font-bold hover:brightness-105 shadow-lg shadow-emerald-500/30 border border-emerald-400/40",
+          discountBg: "bg-blue-500/15 text-blue-800 dark:text-blue-300 border-blue-500/30",
+          badgeColor: "bg-blue-500/15 text-blue-800 dark:text-blue-300 border-blue-500/30",
+          btnClass: "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white font-bold hover:brightness-110 shadow-lg shadow-blue-500/30 border border-blue-400/40",
           ctaText: "Get for ₹99",
           href: "/payment",
-          borderHover: "hover:border-emerald-500/60 hover:shadow-emerald-500/25",
+          borderHover: "hover:border-blue-500/60 hover:shadow-blue-500/25",
         };
     }
   };
@@ -126,9 +126,9 @@ export function PricingCards({ highlightId = "plan-backlog-addon", className = "
               {/* Outer Glow / Animated Gradient Ring for Featured Card */}
               {isFeatured && (
                 <div 
-                  className="absolute -inset-[2px] rounded-[26px] bg-gradient-to-b from-emerald-400 via-teal-400 to-emerald-600 opacity-90 blur-[1px] transition-all duration-500 group-hover:opacity-100 group-hover:blur-[2px]"
+                  className="absolute -inset-[2px] rounded-[26px] bg-gradient-to-b from-blue-500 via-indigo-500 to-blue-700 opacity-90 blur-[1px] transition-all duration-500 group-hover:opacity-100 group-hover:blur-[2px]"
                   style={{
-                    background: "linear-gradient(135deg, #25D366 0%, #10b981 35%, #059669 70%, #34d399 100%)",
+                    background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 35%, #1d4ed8 70%, #60a5fa 100%)",
                   }}
                 />
               )}
@@ -137,7 +137,7 @@ export function PricingCards({ highlightId = "plan-backlog-addon", className = "
               <div
                 className={`relative flex flex-col justify-between h-full w-full rounded-3xl p-6 sm:p-7 backdrop-blur-xl border transition-all duration-300 ${
                   isFeatured
-                    ? "bg-white/95 dark:bg-[#081433]/95 border-emerald-400/50 shadow-xl shadow-emerald-900/10 dark:shadow-emerald-500/10"
+                    ? "bg-white/95 dark:bg-[#081433]/95 border-blue-500/50 shadow-xl shadow-blue-900/10 dark:shadow-blue-500/15"
                     : `bg-white/80 dark:bg-[#0c183a]/80 border-slate-200/80 dark:border-white/10 shadow-lg ${meta.borderHover}`
                 }`}
               >
@@ -153,13 +153,13 @@ export function PricingCards({ highlightId = "plan-backlog-addon", className = "
                 <div className="relative z-10">
                   {/* Floating 'Most Popular' Tag */}
                   {isFeatured && (
-                    <div className="mb-4 inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-xs font-semibold bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 shadow-sm shadow-emerald-500/20">
+                    <div className="mb-4 inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-xs font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm shadow-blue-500/30">
                       <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-slate-950 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-slate-950"></span>
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
                       </span>
                       <span className="font-bold tracking-wide uppercase text-[11px]">Most popular</span>
-                      <span className="opacity-80 text-[11px]">· Benchmark</span>
+                      <span className="opacity-90 text-[11px]">· Benchmark</span>
                     </div>
                   )}
 
@@ -176,7 +176,7 @@ export function PricingCards({ highlightId = "plan-backlog-addon", className = "
                   </div>
 
                   {/* Plan Name */}
-                  <h3 className="font-display text-lg font-bold tracking-tight text-slate-900 dark:text-white mb-2 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                  <h3 className="font-display text-lg font-bold tracking-tight text-slate-900 dark:text-white mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                     {plan.name}
                   </h3>
 
@@ -219,8 +219,8 @@ export function PricingCards({ highlightId = "plan-backlog-addon", className = "
                           <li key={i} className="flex items-start gap-2.5 group/item">
                             <span className={`mt-0.5 shrink-0 rounded-full p-0.5 ${
                               isFeatured 
-                                ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" 
-                                : "bg-slate-200/80 dark:bg-white/10 text-emerald-600 dark:text-emerald-400"
+                                ? "bg-blue-500/20 text-blue-600 dark:text-blue-400" 
+                                : "bg-slate-200/80 dark:bg-white/10 text-blue-600 dark:text-blue-400"
                             }`}>
                               <Check className="w-3.5 h-3.5 stroke-[2.5]" />
                             </span>
@@ -229,7 +229,7 @@ export function PricingCards({ highlightId = "plan-backlog-addon", className = "
                               isReward 
                                 ? "font-semibold text-amber-700 dark:text-amber-300" 
                                 : isProctored
-                                ? "font-semibold text-emerald-700 dark:text-emerald-300"
+                                ? "font-semibold text-blue-700 dark:text-blue-300"
                                 : isSectionBadge
                                 ? "font-medium text-slate-800 dark:text-slate-200"
                                 : ""

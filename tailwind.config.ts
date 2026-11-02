@@ -10,11 +10,11 @@ type Kind = "bg" | "tx" | "bd";
 const SHADES = ["50", "100", "200", "300", "400", "500", "600", "700", "800", "900", "950"];
 
 const BRAND = {
-  black: "#052e16",
-  teal: "#25D366",
-  mint: "#f3fbf6",
-  clay: "#128a3e",
-  taupe: "#ba6f50",
+  black: "#04091a",
+  teal: "#2563eb",
+  mint: "#eff6ff",
+  clay: "#1e3a8a",
+  taupe: "#1d4ed8",
 };
 
 const rgbOf = (hex: string): RGB => {

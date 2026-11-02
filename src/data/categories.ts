@@ -54,7 +54,7 @@ export const CATEGORIES: Category[] = [
     examCount: 4,
     description: "Process thermodynamics, Aspen Plus simulation, reaction kinetics, and chemical plant unit operations.",
     iconName: "FlaskConical",
-    accentColor: "from-emerald-500 to-teal-700",
+    accentColor: "from-blue-600 to-indigo-800",
   },
   {
     code: "management",
