@@ -7,6 +7,7 @@ import { FloatingFullscreenButton } from "@/components/FloatingFullscreenButton"
 import { PageMain } from "@/components/PageMain";
 import { NavigationProgress } from "@/components/NavigationProgress";
 import { PointerGlow } from "@/components/PointerGlow";
+import { BackgroundGrid } from "@/components/BackgroundGrid";
 
 /* Body / UI text */
 const inter = Inter({
@@ -70,7 +71,8 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
-      <body className="min-h-full flex flex-col text-slate-900 antialiased font-sans">
+      <body className="min-h-full flex flex-col text-slate-900 antialiased font-sans relative">
+        <BackgroundGrid />
         <a href="#main-content" className="skip-link">Skip to content</a>
         <PointerGlow />
         <NavigationProgress />

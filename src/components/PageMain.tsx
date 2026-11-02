@@ -12,7 +12,7 @@ export function PageMain({ children }: { children: React.ReactNode }) {
     <main
       id="main-content"
       tabIndex={-1}
-      className={`flex-1 flex flex-col ${isExam ? "" : "page-enter"}`}
+      className={`flex-1 flex flex-col relative z-10 ${isExam ? "" : "page-enter"}`}
       {...(isExam ? { "data-exam": "" } : {})}
     >
       {children}
