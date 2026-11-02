@@ -106,7 +106,7 @@ export function BenefitCards() {
           >
             {/* Outer Soft Ambient Glow Container */}
             <div
-              className={`relative flex flex-col justify-between h-full w-full rounded-3xl p-6 sm:p-7 backdrop-blur-xl border transition-all duration-300 bg-white/80 dark:bg-[#0c140e]/80 border-slate-200/80 dark:border-white/10 shadow-lg ${item.borderColor}`}
+              className={`relative flex flex-col justify-between h-full w-full rounded-3xl p-6 sm:p-7 backdrop-blur-xl border transition-all duration-300 bg-white/80 dark:bg-[#0c183a]/80 border-slate-200/80 dark:border-white/10 shadow-lg ${item.borderColor}`}
             >
               {/* Dynamic Mouse Spotlight Sheen */}
               <div

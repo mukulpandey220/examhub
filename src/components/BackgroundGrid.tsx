@@ -48,7 +48,7 @@ export function BackgroundGrid() {
       <div
         className="absolute top-0 right-0 w-[900px] h-[520px] pointer-events-none opacity-80 dark:opacity-90 transition-opacity"
         style={{
-          background: "radial-gradient(ellipse at 88% 0%, rgba(37, 211, 102, 0.18), transparent 65%)",
+          background: "var(--ambient-radial, radial-gradient(ellipse at 88% 0%, rgba(37, 211, 102, 0.18), transparent 65%))",
         }}
       />
 

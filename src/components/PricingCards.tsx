@@ -137,8 +137,8 @@ export function PricingCards({ highlightId = "plan-backlog-addon", className = "
               <div
                 className={`relative flex flex-col justify-between h-full w-full rounded-3xl p-6 sm:p-7 backdrop-blur-xl border transition-all duration-300 ${
                   isFeatured
-                    ? "bg-white/95 dark:bg-[#08120c]/95 border-emerald-400/50 shadow-xl shadow-emerald-900/10 dark:shadow-emerald-500/10"
-                    : `bg-white/80 dark:bg-[#0c140e]/80 border-slate-200/80 dark:border-white/10 shadow-lg ${meta.borderHover}`
+                    ? "bg-white/95 dark:bg-[#081433]/95 border-emerald-400/50 shadow-xl shadow-emerald-900/10 dark:shadow-emerald-500/10"
+                    : `bg-white/80 dark:bg-[#0c183a]/80 border-slate-200/80 dark:border-white/10 shadow-lg ${meta.borderHover}`
                 }`}
               >
                 {/* Dynamic Mouse Spotlight Sheen */}
