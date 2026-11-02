@@ -20,10 +20,10 @@ import { ThemeToggle } from "./ThemeToggle";
 
 const NAV_LINKS = [
   { href: "/assessments/exams", label: "Exams" },
+  { href: "/institution", label: "Colleges" },
   { href: "/assessments/domains", label: "Domains" },
   { href: "/leaderboard", label: "Rankings" },
   { href: "/deadlines", label: "Deadlines" },
-  { href: "/institution", label: "Colleges" },
   { href: "/pricing", label: "Pricing" },
 ];
 
@@ -144,8 +144,11 @@ export function Navbar() {
             </span>
           </Link>
 
-          {/* Primary navigation */}
-          <nav className="hidden items-center gap-0.5 xl:flex" aria-label="Primary">
+          {/* Primary navigation toggle bar */}
+          <nav
+            className="hidden items-center p-1 rounded-full bg-slate-900/[0.04] dark:bg-white/[0.06] border border-slate-200/70 dark:border-white/10 backdrop-blur-md shadow-[inset_0_1px_2px_rgba(0,0,0,0.03)] lg:flex"
+            aria-label="Primary navigation"
+          >
             {NAV_LINKS.map((link) => {
               const active = isActive(link.href);
               return (
@@ -153,7 +156,11 @@ export function Navbar() {
                   key={link.href}
                   href={link.href}
                   aria-current={active ? "page" : undefined}
-                  className="nav-link"
+                  className={`relative px-4 py-1.5 rounded-full text-[13px] font-medium transition-all duration-200 ${
+                    active
+                      ? "bg-white dark:bg-sky-500/20 text-slate-950 dark:text-white font-semibold shadow-sm border border-slate-200/50 dark:border-sky-400/30"
+                      : "text-slate-600 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/10"
+                  }`}
                 >
                   {link.label}
                 </Link>
@@ -169,7 +176,7 @@ export function Navbar() {
             </div>
 
             {currentUser ? (
-              <div className="relative hidden xl:block" ref={menuRef}>
+              <div className="relative hidden lg:block" ref={menuRef}>
                 <button
                   type="button"
                   onClick={() => setMenuOpen((v) => !v)}
@@ -244,7 +251,7 @@ export function Navbar() {
                 )}
               </div>
             ) : (
-              <div className="hidden items-center gap-1.5 xl:flex">
+              <div className="hidden items-center gap-1.5 lg:flex">
                 <Link href="/login" className="btn btn-ghost btn-sm !px-3.5 !py-2 text-sm">
                   Sign in
                 </Link>
@@ -258,7 +265,7 @@ export function Navbar() {
             <button
               type="button"
               onClick={() => setMobileMenuOpen((v) => !v)}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-slate-600 hover:bg-electric-500/[0.08] hover:text-slate-900 xl:hidden"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-slate-600 hover:bg-electric-500/[0.08] hover:text-slate-900 lg:hidden"
               aria-label={mobileMenuOpen ? "Close navigation" : "Open navigation"}
               aria-controls="mobile-navigation"
               aria-expanded={mobileMenuOpen}
@@ -271,21 +278,25 @@ export function Navbar() {
 
       {/* Mobile drawer */}
       {mobileMenuOpen && (
-        <nav id="mobile-navigation" aria-label="Mobile navigation" className="mobile-nav animate-slide-down space-y-3 xl:hidden">
-          <div className="grid grid-cols-2 gap-1.5">
-            {NAV_LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`rounded-xl px-3 py-2.5 text-sm font-medium ${
-                  isActive(link.href)
-                    ? "bg-electric-500/10 text-electric-700"
-                    : "text-slate-700 hover:bg-electric-500/[0.07]"
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
+        <nav id="mobile-navigation" aria-label="Mobile navigation" className="mobile-nav animate-slide-down space-y-3 lg:hidden">
+          <div className="flex flex-col gap-1 p-1.5 rounded-2xl bg-slate-900/[0.03] dark:bg-white/[0.04] border border-slate-200/60 dark:border-white/10">
+            {NAV_LINKS.map((link) => {
+              const active = isActive(link.href);
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all ${
+                    active
+                      ? "bg-white dark:bg-sky-500/20 text-slate-950 dark:text-white font-semibold shadow-sm border border-slate-200/50 dark:border-sky-400/30"
+                      : "text-slate-700 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-white/10"
+                  }`}
+                >
+                  <span>{link.label}</span>
+                  {active && <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />}
+                </Link>
+              );
+            })}
           </div>
 
           <div className="flex items-center justify-between border-t border-slate-200/70 pt-3">
