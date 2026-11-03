@@ -8,7 +8,6 @@ import { PageMain } from "@/components/PageMain";
 import { NavigationProgress } from "@/components/NavigationProgress";
 import { PointerGlow } from "@/components/PointerGlow";
 import { BackgroundGrid } from "@/components/BackgroundGrid";
-import { PlayfulAvatar3D } from "@/components/PlayfulAvatar3D";
 
 /* Body / UI text */
 const inter = Inter({
@@ -84,7 +83,6 @@ export default function RootLayout({
         <PageMain>{children}</PageMain>
         <Footer />
         <FloatingFullscreenButton />
-        <PlayfulAvatar3D />
       </body>
     </html>
   );
