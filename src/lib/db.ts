@@ -11,7 +11,8 @@ import {
   InstitutionalLead,
   ProctoringLog,
   TokenTransaction,
-  PaymentIntent
+  PaymentIntent,
+  StudentProctoringIncident
 } from "@/types";
 import { DOMAINS } from "@/data/domains";
 import { INITIAL_EXAMS } from "@/data/exams";
@@ -81,6 +82,7 @@ class DatabaseEngine {
   private institutionalLeads: InstitutionalLead[] = [];
   private tokenTransactions: TokenTransaction[] = [];
   private paymentIntents: PaymentIntent[] = [];
+  private studentProctoringIncidents: StudentProctoringIncident[] = [];
 
   constructor() {
     this.init();
@@ -287,9 +289,12 @@ class DatabaseEngine {
     ]);
 
     this.paymentIntents = readJsonFile<PaymentIntent[]>("payment_intents.json", []);
+
+    // 10. Student Proctoring Incidents & Captured Photo Snapshots
+    this.studentProctoringIncidents = readJsonFile<StudentProctoringIncident[]>("student_incidents.json", []);
   }
 
-  private persist(target: "questions" | "exams" | "attempts" | "entitlements" | "deadlines" | "profiles" | "bookmarks" | "institutionalLeads" | "tokenTransactions" | "paymentIntents") {
+  private persist(target: "questions" | "exams" | "attempts" | "entitlements" | "deadlines" | "profiles" | "bookmarks" | "institutionalLeads" | "tokenTransactions" | "paymentIntents" | "studentProctoringIncidents") {
     switch (target) {
       case "questions":
         writeJsonFile("questions.json", this.questions);
@@ -320,6 +325,9 @@ class DatabaseEngine {
         break;
       case "paymentIntents":
         writeJsonFile("payment_intents.json", this.paymentIntents);
+        break;
+      case "studentProctoringIncidents":
+        writeJsonFile("student_incidents.json", this.studentProctoringIncidents);
         break;
     }
   }
@@ -1450,6 +1458,36 @@ class DatabaseEngine {
         { collegeName: "JNTUH Hyderabad Technical Campus", rank: 31, percentile: 86.8, avgAptitude: 74, avgTechnical: 69, avgWorkplace: 78 },
       ]
     };
+  }
+
+  // --- Student Proctoring Incidents & Evidence Snapshots ---
+  public saveProctoringIncident(incident: StudentProctoringIncident): StudentProctoringIncident {
+    const existingIndex = this.studentProctoringIncidents.findIndex(item => item.id === incident.id);
+    if (existingIndex >= 0) {
+      this.studentProctoringIncidents[existingIndex] = incident;
+    } else {
+      this.studentProctoringIncidents.unshift(incident);
+    }
+    this.persist("studentProctoringIncidents");
+    return incident;
+  }
+
+  public getProctoringIncidents(filters?: {
+    attemptId?: string;
+    studentId?: string;
+    examCancelledOnly?: boolean;
+  }): StudentProctoringIncident[] {
+    let list = [...this.studentProctoringIncidents];
+    if (filters?.attemptId) {
+      list = list.filter(i => i.attemptId === filters.attemptId);
+    }
+    if (filters?.studentId) {
+      list = list.filter(i => i.studentId === filters.studentId || i.studentEmail === filters.studentId);
+    }
+    if (filters?.examCancelledOnly) {
+      list = list.filter(i => i.examCancelled === true);
+    }
+    return list.sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime());
   }
 }
 

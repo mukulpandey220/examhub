@@ -192,6 +192,7 @@ export interface ProctoringViolation {
   | "fullscreen_exit"
   | "window_blur"
   | "phone_detected"
+  | "suspicious_device"
   | "multiple_faces"
   | "second_login_attempt"
   | "secondary_display"
@@ -358,6 +359,8 @@ export type ProctoringEventType =
   | "face_absent"
   | "multiple_faces"
   | "phone_detected"
+  | "suspicious_device"
+  | "exam_cancelled"
   | "second_login_attempt"
   | "head_deviation"
   | "audio_anomaly"
@@ -414,6 +417,8 @@ export interface ProctoringEvent {
   examId: string;
   attemptId: string;
   studentId: string;
+  studentName?: string;
+  studentEmail?: string;
   eventType: ProctoringEventType;
   severity: "info" | "warning" | "strike" | "critical";
   occurredAt: string;
@@ -423,6 +428,30 @@ export interface ProctoringEvent {
   metadata?: Record<string, any>;
   policyVersion: string;
   processingStatus: "processed" | "flagged" | "ignored";
+  warningNumber?: number;
+  evidenceSnapshot?: string | null;
+  examCancelled?: boolean;
+  cancellationReason?: string | null;
+  allWarningsSummary?: ProctoringViolation[] | null;
+}
+
+export interface StudentProctoringIncident {
+  id: string;
+  attemptId: string;
+  examId: string;
+  studentId: string;
+  studentName?: string;
+  studentEmail?: string;
+  incidentType: ProctoringEventType | string;
+  warningNumber: number; // 1, 2, or 3
+  severity: "info" | "warning" | "strike" | "critical";
+  details: string;
+  evidenceSnapshot?: string | null; // Base64 JPEG data URL
+  examCancelled: boolean;
+  cancellationReason?: string | null;
+  allWarningsSummary?: ProctoringViolation[] | null;
+  occurredAt: string;
+  createdAt: string;
 }
 
 export interface ProctoringReview {

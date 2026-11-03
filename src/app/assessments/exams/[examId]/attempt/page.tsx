@@ -260,6 +260,24 @@ export default function LiveExaminationPage({ params }: { params: { examId: stri
     }, 4500);
   };
 
+  // Helper: Capture live camera snapshot for proctoring incident evidence
+  const captureCameraSnapshot = (): string | null => {
+    if (typeof document === "undefined") return null;
+    const video = examVideoRef.current || preflightVideoRef.current;
+    if (!video || !video.videoWidth || !video.videoHeight) return null;
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = 480;
+      canvas.height = 360;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return null;
+      ctx.drawImage(video, 0, 0, 480, 360);
+      return canvas.toDataURL("image/jpeg", 0.7);
+    } catch (err) {
+      return null;
+    }
+  };
+
   // Helper: Record Proctoring Violation with debounce and multi-type defense
   const recordViolation = (type: ProctoringViolation["type"], details: string) => {
     const now = Date.now();
@@ -280,7 +298,27 @@ export default function LiveExaminationPage({ params }: { params: { examId: stri
       details,
     };
 
-    // Asynchronously stream to server proctoring event engine
+    if (type === "multiple_faces") {
+      dualFaceStrikesRef.current += 1;
+    }
+    if (type === "phone_detected") {
+      phoneStrikesRef.current += 1;
+    }
+
+    const currentWarningNum = type === "multiple_faces"
+      ? dualFaceStrikesRef.current
+      : type === "phone_detected"
+        ? phoneStrikesRef.current
+        : violations.length + 1;
+
+    // If multiple face or suspicious device detected, or if reaching strike 3, capture snapshot of that exact moment
+    const shouldCaptureSnapshot = type === "multiple_faces" || 
+      type === "phone_detected" || 
+      type === "suspicious_device" || 
+      currentWarningNum >= 3;
+    const momentSnapshot = shouldCaptureSnapshot ? captureCameraSnapshot() : null;
+
+    // Asynchronously stream to server proctoring event engine and persist to Cloudflare D1
     if (attempt?.id) {
       fetch("/api/v1/proctoring/events", {
         method: "POST",
@@ -289,19 +327,16 @@ export default function LiveExaminationPage({ params }: { params: { examId: stri
           eventId: newViolation.id,
           attemptId: attempt.id,
           examId,
-          studentId: currentUser.email,
+          studentId: currentUser.email || "user-student-ramkumar",
+          studentName: currentUser.name || "Ramkumar Malothu",
+          studentEmail: currentUser.email || "ramkumar.malothu@nyeras.com",
           eventType: type,
           occurredAt: newViolation.timestamp,
+          warningNumber: currentWarningNum,
+          evidenceSnapshot: momentSnapshot,
           metadata: { details },
         }),
       }).catch(() => {});
-    }
-
-    if (type === "multiple_faces") {
-      dualFaceStrikesRef.current += 1;
-    }
-    if (type === "phone_detected") {
-      phoneStrikesRef.current += 1;
     }
 
     setViolations(prev => {
@@ -1048,6 +1083,34 @@ export default function LiveExaminationPage({ params }: { params: { examId: stri
     if (!attempt || submitting) return;
     setSubmitting(true);
     try {
+      // Capture photographic evidence of the cancellation moment
+      const cancellationSnapshot = captureCameraSnapshot();
+
+      // Persist cancellation incident log with all 3 warnings into Cloudflare D1
+      fetch("/api/v1/proctoring/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          attemptId: attempt.id,
+          examId,
+          studentId: currentUser.email || "user-student-ramkumar",
+          studentName: currentUser.name || "Ramkumar Malothu",
+          studentEmail: currentUser.email || "ramkumar.malothu@nyeras.com",
+          eventType: "exam_cancelled",
+          severity: "critical",
+          warningNumber: 3,
+          evidenceSnapshot: cancellationSnapshot,
+          examCancelled: true,
+          cancellationReason: `Examination automatically cancelled: ${reason}. Maximum 3 security warnings exceeded.`,
+          allWarningsSummary: overrideViolations,
+          metadata: { 
+            details: reason, 
+            warningsCount: overrideViolations.length,
+            violations: overrideViolations.map(v => ({ type: v.type, details: v.details, timestamp: v.timestamp }))
+          },
+        }),
+      }).catch(() => {});
+
       const finalProctoringLog: ProctoringLog = {
         integrityScore: 0,
         totalViolations: overrideViolations.length,

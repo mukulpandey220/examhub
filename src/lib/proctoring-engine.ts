@@ -5,7 +5,8 @@ import {
   ProctoringEvent, 
   ProctoringReview, 
   ProctoringSessionStatus, 
-  ProctoringEventType 
+  ProctoringEventType,
+  StudentProctoringIncident 
 } from "@/types";
 
 // Default Production Proctoring Policy (Nyeras Nxtmove Section 24)
@@ -339,6 +340,41 @@ class ProctoringEngineService {
 
   public getAllReviews(): ProctoringReview[] {
     return this.reviews;
+  }
+
+  public recordIncident(incident: Partial<StudentProctoringIncident> & {
+    attemptId: string;
+    studentId: string;
+    incidentType: string;
+    details: string;
+  }): StudentProctoringIncident {
+    const fullIncident: StudentProctoringIncident = {
+      id: incident.id || `inc-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      attemptId: incident.attemptId,
+      examId: incident.examId || "exam-dotnet-mock-01",
+      studentId: incident.studentId,
+      studentName: incident.studentName || "Candidate",
+      studentEmail: incident.studentEmail || incident.studentId,
+      incidentType: incident.incidentType,
+      warningNumber: incident.warningNumber ?? 1,
+      severity: incident.severity || (incident.examCancelled ? "critical" : "warning"),
+      details: incident.details,
+      evidenceSnapshot: incident.evidenceSnapshot || null,
+      examCancelled: Boolean(incident.examCancelled),
+      cancellationReason: incident.cancellationReason || null,
+      allWarningsSummary: incident.allWarningsSummary || null,
+      occurredAt: incident.occurredAt || new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+    };
+    return db.saveProctoringIncident(fullIncident);
+  }
+
+  public getIncidents(filters?: {
+    attemptId?: string;
+    studentId?: string;
+    examCancelledOnly?: boolean;
+  }): StudentProctoringIncident[] {
+    return db.getProctoringIncidents(filters);
   }
 }
 

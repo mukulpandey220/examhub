@@ -108,3 +108,87 @@ export async function executeD1(
   return { success: false };
 }
 
+/**
+ * Persists a proctoring incident log with optional camera snapshot into D1
+ */
+export async function saveProctoringIncident(incident: {
+  id: string;
+  attemptId: string;
+  examId: string;
+  studentId: string;
+  studentName?: string;
+  studentEmail?: string;
+  incidentType: string;
+  warningNumber: number;
+  severity?: string;
+  details: string;
+  evidenceSnapshot?: string | null;
+  examCancelled?: boolean;
+  cancellationReason?: string | null;
+  allWarningsSummary?: any[] | null;
+  occurredAt?: string;
+}): Promise<boolean> {
+  const sql = `
+    INSERT OR REPLACE INTO student_proctoring_incidents (
+      id, attempt_id, exam_id, student_id, student_name, student_email,
+      incident_type, warning_number, severity, details, evidence_snapshot,
+      exam_cancelled, cancellation_reason, all_warnings_summary, occurred_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  const params = [
+    incident.id,
+    incident.attemptId,
+    incident.examId,
+    incident.studentId,
+    incident.studentName || "Candidate",
+    incident.studentEmail || incident.studentId,
+    incident.incidentType,
+    incident.warningNumber,
+    incident.severity || "warning",
+    incident.details,
+    incident.evidenceSnapshot || null,
+    incident.examCancelled ? 1 : 0,
+    incident.cancellationReason || null,
+    incident.allWarningsSummary ? JSON.stringify(incident.allWarningsSummary) : null,
+    incident.occurredAt || new Date().toISOString(),
+  ];
+
+  try {
+    const res = await executeD1(sql, params);
+    return res.success;
+  } catch (err) {
+    console.warn("Failed to persist incident directly to D1 (will use fallback):", err);
+    return false;
+  }
+}
+
+/**
+ * Retrieves proctoring incident error logs and captured snapshot evidence from D1
+ */
+export async function getProctoringIncidents(filters?: {
+  attemptId?: string;
+  studentId?: string;
+  examCancelledOnly?: boolean;
+}): Promise<any[]> {
+  let sql = `SELECT * FROM student_proctoring_incidents WHERE 1=1`;
+  const params: (string | number | boolean | null)[] = [];
+
+  if (filters?.attemptId) {
+    sql += ` AND attempt_id = ?`;
+    params.push(filters.attemptId);
+  }
+  if (filters?.studentId) {
+    sql += ` AND student_id = ?`;
+    params.push(filters.studentId);
+  }
+  if (filters?.examCancelledOnly) {
+    sql += ` AND exam_cancelled = 1`;
+  }
+
+  sql += ` ORDER BY occurred_at DESC`;
+
+  return queryD1(sql, params);
+}
+
+

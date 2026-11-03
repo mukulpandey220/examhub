@@ -16,7 +16,13 @@ import {
   Check, 
   UserCheck,
   Trophy,
-  Cpu
+  Cpu,
+  ShieldAlert,
+  Camera,
+  AlertTriangle,
+  Eye,
+  X,
+  FileText
 } from "lucide-react";
 import { INITIAL_EXAMS } from "@/data/exams";
 import { OFFICIAL_RAZORPAY_PAYMENT_URL, RAZORPAY_DISPLAY_URL } from "@/config/payment";
@@ -56,6 +62,11 @@ export default function AdminDashboardPage() {
   ]);
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [incidents, setIncidents] = useState<any[]>([]);
+  const [incidentSearchTerm, setIncidentSearchTerm] = useState("");
+  const [incidentFilter, setIncidentFilter] = useState<"all" | "cancelled" | "evidence">("all");
+  const [selectedEvidenceImage, setSelectedEvidenceImage] = useState<string | null>(null);
+  const [selectedIncidentForDetail, setSelectedIncidentForDetail] = useState<any | null>(null);
 
   useEffect(() => {
     async function fetchStudents() {
@@ -69,7 +80,21 @@ export default function AdminDashboardPage() {
         console.error(e);
       }
     }
+
+    async function fetchIncidents() {
+      try {
+        const res = await fetch("/api/v1/proctoring/events");
+        const data = await res.json();
+        if (data.incidents) {
+          setIncidents(data.incidents);
+        }
+      } catch (e) {
+        console.error("Failed to fetch proctoring incidents:", e);
+      }
+    }
+
     fetchStudents();
+    fetchIncidents();
   }, []);
 
   const totalQuestions = 3600;
@@ -281,6 +306,332 @@ export default function AdminDashboardPage() {
             </table>
           </div>
         </div>
+
+        {/* Cloudflare D1 Student Proctoring Error Logs & Photographic Evidence Monitor */}
+        <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-soft-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center space-x-2">
+                <ShieldAlert className="w-5 h-5 text-rose-600" />
+                <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
+                  Proctoring Error Logs &amp; Evidence Repository (Cloudflare D1)
+                </h2>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Audited student error logs, 3 warnings records for cancelled exams, and automatic camera photo snapshots for multiple face / suspicious device detections.
+              </p>
+            </div>
+
+            {/* Filter buttons & search */}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+                <button
+                  onClick={() => setIncidentFilter("all")}
+                  className={`px-3 py-1.5 rounded-lg transition ${incidentFilter === "all" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}
+                >
+                  All Logs ({incidents.length})
+                </button>
+                <button
+                  onClick={() => setIncidentFilter("cancelled")}
+                  className={`px-3 py-1.5 rounded-lg transition ${incidentFilter === "cancelled" ? "bg-white text-rose-700 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}
+                >
+                  Cancelled ({incidents.filter(i => i.exam_cancelled || i.examCancelled).length})
+                </button>
+                <button
+                  onClick={() => setIncidentFilter("evidence")}
+                  className={`px-3 py-1.5 rounded-lg transition flex items-center space-x-1 ${incidentFilter === "evidence" ? "bg-white text-electric-700 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  <span>Snapshots ({incidents.filter(i => i.evidence_snapshot || i.evidenceSnapshot).length})</span>
+                </button>
+              </div>
+
+              <div className="relative w-full sm:w-56">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  placeholder="Filter incident logs..."
+                  value={incidentSearchTerm}
+                  onChange={(e) => setIncidentSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Incidents Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-200 text-slate-400 uppercase tracking-wider font-bold text-[10px]">
+                  <th className="py-3 px-4">Candidate &amp; Exam</th>
+                  <th className="py-3 px-4">Infraction &amp; Error Log</th>
+                  <th className="py-3 px-4">Warning Progress</th>
+                  <th className="py-3 px-4">Exam Status</th>
+                  <th className="py-3 px-4">Photographic Evidence</th>
+                  <th className="py-3 px-4 text-right">Timestamp</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {incidents
+                  .filter((inc) => {
+                    const sTerm = incidentSearchTerm.toLowerCase();
+                    const name = inc.student_name || inc.studentName || "";
+                    const email = inc.student_email || inc.studentEmail || inc.student_id || inc.studentId || "";
+                    const type = inc.incident_type || inc.incidentType || "";
+                    const details = inc.details || "";
+                    const matchesSearch = name.toLowerCase().includes(sTerm) ||
+                      email.toLowerCase().includes(sTerm) ||
+                      type.toLowerCase().includes(sTerm) ||
+                      details.toLowerCase().includes(sTerm);
+
+                    if (!matchesSearch) return false;
+                    if (incidentFilter === "cancelled") return Boolean(inc.exam_cancelled || inc.examCancelled);
+                    if (incidentFilter === "evidence") return Boolean(inc.evidence_snapshot || inc.evidenceSnapshot);
+                    return true;
+                  })
+                  .map((inc) => {
+                    const studentName = inc.student_name || inc.studentName || "Candidate";
+                    const studentEmail = inc.student_email || inc.studentEmail || inc.student_id || inc.studentId || "student@nyeras.com";
+                    const type = inc.incident_type || inc.incidentType || "proctor_event";
+                    const warnNum = inc.warning_number ?? inc.warningNumber ?? 1;
+                    const isCancelled = Boolean(inc.exam_cancelled || inc.examCancelled);
+                    const snapshot = inc.evidence_snapshot || inc.evidenceSnapshot;
+                    const occurredAt = inc.occurred_at || inc.occurredAt || inc.created_at;
+
+                    let warningsSummaryList: any[] = [];
+                    try {
+                      if (typeof inc.all_warnings_summary === "string") {
+                        warningsSummaryList = JSON.parse(inc.all_warnings_summary);
+                      } else if (Array.isArray(inc.all_warnings_summary)) {
+                        warningsSummaryList = inc.all_warnings_summary;
+                      } else if (Array.isArray(inc.allWarningsSummary)) {
+                        warningsSummaryList = inc.allWarningsSummary;
+                      }
+                    } catch (e) {}
+
+                    return (
+                      <tr key={inc.id} className={`hover:bg-slate-50/80 transition ${isCancelled ? "bg-rose-50/30" : ""}`}>
+                        {/* Candidate */}
+                        <td className="py-4 px-4">
+                          <div className="font-extrabold text-slate-900 text-sm">{studentName}</div>
+                          <div className="font-mono text-purple-700 text-xs">{studentEmail}</div>
+                          <div className="text-[10px] text-slate-400 font-mono mt-0.5">{inc.exam_id || inc.examId}</div>
+                        </td>
+
+                        {/* Error Log */}
+                        <td className="py-4 px-4 max-w-sm">
+                          <div className="flex items-center space-x-1.5 mb-1">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                              type === "multiple_faces" 
+                                ? "bg-purple-100 text-purple-800 border border-purple-200" 
+                                : type === "phone_detected" || type === "suspicious_device"
+                                  ? "bg-amber-100 text-amber-800 border border-amber-200"
+                                  : type === "tab_switch" || type === "window_blur"
+                                    ? "bg-rose-100 text-rose-800 border border-rose-200"
+                                    : "bg-slate-100 text-slate-700 border border-slate-200"
+                            }`}>
+                              {type.replace(/_/g, " ")}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-700 font-medium leading-snug">
+                            {inc.details}
+                          </p>
+                        </td>
+
+                        {/* Warning progress */}
+                        <td className="py-4 px-4">
+                          <div className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                            <AlertTriangle className="w-3 h-3 text-amber-600" />
+                            <span>Warning {warnNum} of 3</span>
+                          </div>
+                        </td>
+
+                        {/* Exam Status */}
+                        <td className="py-4 px-4">
+                          {isCancelled ? (
+                            <div className="space-y-1">
+                              <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-rose-600 text-white font-black text-[10px] uppercase shadow-sm">
+                                <span>🚨 EXAM CANCELLED</span>
+                              </span>
+                              {warningsSummaryList.length > 0 && (
+                                <button
+                                  onClick={() => setSelectedIncidentForDetail(inc)}
+                                  className="text-[11px] text-rose-700 hover:underline font-bold block"
+                                >
+                                  View 3 Recorded Warnings &rarr;
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="px-2 py-1 rounded bg-slate-100 text-slate-600 font-bold text-[10px]">
+                              Active Attempt
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Photographic Evidence */}
+                        <td className="py-4 px-4">
+                          {snapshot ? (
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() => setSelectedEvidenceImage(snapshot)}
+                                className="group relative rounded-lg overflow-hidden border-2 border-electric-500 shadow-sm focus:outline-none"
+                              >
+                                <img
+                                  src={snapshot}
+                                  alt="Captured Proctoring Moment"
+                                  className="w-16 h-12 object-cover transition transform group-hover:scale-105"
+                                />
+                                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                                  <Eye className="w-4 h-4 text-white" />
+                                </div>
+                              </button>
+                              <button
+                                onClick={() => setSelectedEvidenceImage(snapshot)}
+                                className="text-[11px] font-bold text-electric-600 hover:underline flex items-center space-x-0.5"
+                              >
+                                <span>Inspect Photo</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-slate-400 italic">No snapshot needed</span>
+                          )}
+                        </td>
+
+                        {/* Timestamp */}
+                        <td className="py-4 px-4 text-right text-slate-500 font-mono text-[11px]">
+                          {occurredAt ? new Date(occurredAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "Recent"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            </table>
+
+            {incidents.length === 0 && (
+              <div className="py-12 text-center text-slate-400 text-xs">
+                <ShieldAlert className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                No proctoring infractions recorded yet. Real warnings and camera snapshots will automatically populate here.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Modal: High-Resolution Photographic Evidence Lightbox */}
+        {selectedEvidenceImage && (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center space-x-2">
+                  <Camera className="w-5 h-5 text-electric-600" />
+                  <h3 className="font-extrabold text-slate-900 text-base">
+                    Proctoring Incident Photo Evidence (Cloudflare D1)
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setSelectedEvidenceImage(null)}
+                  className="p-1 rounded-lg hover:bg-slate-100 text-slate-500 transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-900 flex items-center justify-center">
+                <img
+                  src={selectedEvidenceImage}
+                  alt="Full Evidence Snapshot"
+                  className="w-full max-h-[460px] object-contain"
+                />
+              </div>
+
+              <div className="flex items-center justify-between text-xs text-slate-500 pt-2">
+                <span>Photographic moment captured automatically by ExamHub AI Proctoring Engine</span>
+                <button
+                  onClick={() => setSelectedEvidenceImage(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-900 text-white font-bold hover:bg-slate-800 transition text-xs"
+                >
+                  Close Viewer
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: 3 Warnings Summary For Cancelled Examination */}
+        {selectedIncidentForDetail && (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center space-x-2">
+                  <AlertTriangle className="w-5 h-5 text-rose-600" />
+                  <h3 className="font-extrabold text-slate-900 text-base">
+                    Recorded 3 Warnings — Examination Disqualification Log
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setSelectedIncidentForDetail(null)}
+                  className="p-1 rounded-lg hover:bg-slate-100 text-slate-500 transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-900 space-y-1">
+                <div className="font-bold text-sm">
+                  Candidate: {selectedIncidentForDetail.student_name || selectedIncidentForDetail.studentName}
+                </div>
+                <div>Reason: {selectedIncidentForDetail.cancellation_reason || selectedIncidentForDetail.cancellationReason || "3 Security Warnings Exceeded"}</div>
+              </div>
+
+              <div className="space-y-3">
+                <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider">
+                  Chronological Warnings Recorded in D1:
+                </h4>
+                {(() => {
+                  let list: any[] = [];
+                  try {
+                    if (typeof selectedIncidentForDetail.all_warnings_summary === "string") {
+                      list = JSON.parse(selectedIncidentForDetail.all_warnings_summary);
+                    } else if (Array.isArray(selectedIncidentForDetail.all_warnings_summary)) {
+                      list = selectedIncidentForDetail.all_warnings_summary;
+                    } else if (Array.isArray(selectedIncidentForDetail.allWarningsSummary)) {
+                      list = selectedIncidentForDetail.allWarningsSummary;
+                    }
+                  } catch (e) {}
+
+                  return list.map((w, idx) => (
+                    <div key={idx} className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex items-start space-x-3 text-xs">
+                      <span className="w-6 h-6 rounded-full bg-rose-600 text-white font-bold flex items-center justify-center shrink-0 text-[11px]">
+                        {idx + 1}
+                      </span>
+                      <div className="space-y-0.5">
+                        <div className="font-bold text-slate-900 uppercase text-[10px]">
+                          {w.type ? String(w.type).replace(/_/g, " ") : `Warning #${idx + 1}`}
+                        </div>
+                        <div className="text-slate-600">{w.details || "Security strike logged"}</div>
+                        {w.timestamp && (
+                          <div className="text-[10px] text-slate-400 font-mono">
+                            {new Date(w.timestamp).toLocaleTimeString()}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+
+              <div className="pt-2 text-right">
+                <button
+                  onClick={() => setSelectedIncidentForDetail(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-900 text-white font-bold hover:bg-slate-800 transition text-xs"
+                >
+                  Close Log
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Administration Modules Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
