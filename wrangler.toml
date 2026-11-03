@@ -8,3 +8,4 @@ binding = "DB"
 database_name = "examhub-production"
 database_id = "your-d1-database-id-here" # Replace with the ID returned by `npx wrangler d1 create examhub-production`
 migrations_dir = "./migrations"
+

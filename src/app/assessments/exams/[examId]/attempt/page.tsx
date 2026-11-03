@@ -33,6 +33,7 @@ import { Question, ExamAttempt, ProctoringViolation, ProctoringLog } from "@/typ
 import { requestFullscreen, exitFullscreen, addFullscreenListener, isFullscreenActive } from "@/lib/fullscreen";
 import { FaceMonitorStateMachine, FaceMonitorState, ImageQualityStatus } from "@/lib/face-monitor-state-machine";
 import { scanVideoFrame } from "@/lib/proctoring-vision";
+import { ProctoringWebcamMonitor } from "@/components/ProctoringWebcamMonitor";
 
 export default function LiveExaminationPage({ params }: { params: { examId: string } }) {
   const router = useRouter();
@@ -1970,112 +1971,29 @@ export default function LiveExaminationPage({ params }: { params: { examId: stri
       </div>
 
       {/* ============================================================ */}
-      {/* 4. FLOATING WEBCAM PROCTORING PICTURE-IN-PICTURE WIDGET     */}
+      {/* 4. HIGH-TECH AI PROCTORING WEBCAM MONITOR (mukulpandey220/aiproctor) */}
       {/* ============================================================ */}
       {proctoringStarted && (
         <div className="fixed bottom-4 right-4 z-40 select-none">
-          {cameraMinimized ? (
-            <button
-              type="button"
-              onClick={() => setCameraMinimized(false)}
-              className="p-3 rounded-2xl bg-slate-900 text-white shadow-2xl border border-slate-700 flex items-center space-x-2 text-xs font-bold hover:scale-105 transition"
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <Camera className="w-4 h-4" />
-              <span>Proctored Feed</span>
-            </button>
-          ) : (
-            <div className="w-44 sm:w-52 rounded-2xl bg-slate-950 p-2 shadow-2xl border border-slate-800 text-white space-y-2 backdrop-blur-xl">
-              <div className="flex items-center justify-between px-1 text-[10px] font-bold text-slate-400">
-                <span className="flex items-center gap-1.5 text-emerald-400">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>LIVE PROCTOR</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setCameraMinimized(true)}
-                  className="hover:text-white"
-                  title="Minimize camera view"
-                >
-                  <Minimize2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
+          <ProctoringWebcamMonitor
+            videoRef={examVideoRef}
+            stream={mediaStreamRef.current}
+            isCameraActive={cameraActive}
+            onViolation={(type, msg) => {
+              if (type === "multiple_faces") {
+                recordViolation("multiple_faces", msg);
+              }
+            }}
+          />
 
-              <div className="relative aspect-[4/3] rounded-xl overflow-hidden bg-slate-900 border border-slate-800 flex items-center justify-center">
-                <video
-                  ref={examVideoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover transform -scale-x-100"
-                />
-                <div className="absolute inset-0 border border-dashed border-emerald-500/40 rounded-xl m-1.5 pointer-events-none" />
-              </div>
-
-              <div className="flex items-center justify-between text-[10px] text-slate-400 px-1 font-mono">
-                <span className="flex items-center gap-1 text-slate-300">
-                  <Mic className="w-3 h-3 text-emerald-400" /> Mic: Active
-                </span>
-                <span className={detectedFaceCount > 1 ? "text-rose-400 font-bold animate-pulse bg-rose-950/80 px-1.5 py-0.5 rounded border border-rose-600/50" : detectedFaceCount === 0 ? "text-amber-400 font-bold animate-pulse bg-amber-950/80 px-1.5 py-0.5 rounded border border-amber-600/50" : "text-emerald-400 font-bold"}>
-                  {detectedFaceCount > 1 ? `🚨 Dual Face (${detectedFaceCount})` : detectedFaceCount === 0 ? "⚠️ Face Missing" : "✓ 1 Face"}
-                </span>
-              </div>
-
-              {phoneDetected && (
-                <div className="bg-rose-950/80 border border-rose-600 text-rose-300 text-[9px] px-2 py-0.5 rounded-lg font-mono font-bold text-center animate-pulse">
-                  📱 Mobile Phone In Frame!
-                </div>
-              )}
-
-              {/* Proctor verification test triggers for 3-warning demonstration */}
-              <div className="grid grid-cols-2 gap-1 pt-1">
-                <button
-                  type="button"
-                  onClick={handleSimulateDualFace}
-                  className="px-1.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[9px] text-slate-300 font-mono transition text-center"
-                  title="Simulate dual face recognition (3 warnings allowed)"
-                >
-                  Dual Face ({dualFaceStrikesRef.current}/3)
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSimulatePhone}
-                  className="px-1.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[9px] text-slate-300 font-mono transition text-center"
-                  title="Simulate mobile phone detection (3 warnings allowed)"
-                >
-                  Phone ({phoneStrikesRef.current}/3)
-                </button>
-              </div>
-
-              {/* Developer Diagnostics Panel Toggle */}
-              <div className="pt-1 border-t border-slate-800/80">
-                <button
-                  type="button"
-                  onClick={() => setShowDiagnosticsPanel(prev => !prev)}
-                  className="w-full text-center py-0.5 text-[9px] text-slate-400 hover:text-slate-200 font-mono transition flex items-center justify-center gap-1"
-                >
-                  <span>{showDiagnosticsPanel ? "Hide AI Diagnostics ▲" : "Proctor Diagnostics ▼"}</span>
-                </button>
-
-                {showDiagnosticsPanel && (
-                  <div className="mt-1 p-2 rounded-xl bg-slate-950 border border-slate-800 text-[9px] font-mono space-y-1 text-slate-300">
-                    <div className="flex justify-between"><span className="text-slate-500">Camera:</span> <span className="text-emerald-400 font-bold">{proctorDiagnostics.camera}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Resolution:</span> <span>{proctorDiagnostics.resolution}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Sampling FPS:</span> <span>~{proctorDiagnostics.fps}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Detected faces:</span> <span>{proctorDiagnostics.detectedFaces}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Reliable faces:</span> <span className="font-bold text-white">{proctorDiagnostics.reliableFaces}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Primary conf:</span> <span>{(proctorDiagnostics.primaryConfidence * 100).toFixed(0)}%</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Secondary conf:</span> <span>{proctorDiagnostics.secondaryConfidence > 0 ? `${(proctorDiagnostics.secondaryConfidence * 100).toFixed(0)}%` : "—"}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Tracked faces:</span> <span>{proctorDiagnostics.trackedFaces}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Multi-face persistence:</span> <span>{proctorDiagnostics.multiFacePersistence} / 5</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">State:</span> <span className={proctorDiagnostics.faceMonitorState === "ONE_FACE" ? "text-emerald-400 font-bold" : proctorDiagnostics.faceMonitorState === "MULTIPLE_CONFIRMED" ? "text-rose-400 font-bold" : "text-amber-400 font-bold"}>{proctorDiagnostics.faceMonitorState}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Image quality:</span> <span className={proctorDiagnostics.imageQuality === "GOOD" ? "text-emerald-400" : "text-amber-400"}>{proctorDiagnostics.imageQuality}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Last event:</span> <span className={proctorDiagnostics.lastEvent === "NONE" ? "text-slate-400" : "text-rose-400 font-bold"}>{proctorDiagnostics.lastEvent}</span></div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+          {/* Hidden video element fallback if monitor is minimized */}
+          <video
+            ref={examVideoRef}
+            autoPlay
+            playsInline
+            muted
+            className="hidden"
+          />
         </div>
       )}
 
