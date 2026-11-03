@@ -1,0 +1,10 @@
+name = "examhub"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Cloudflare D1 Database Binding
+[[d1_databases]]
+binding = "DB"
+database_name = "examhub-production"
+database_id = "your-d1-database-id-here" # Replace with the ID returned by `npx wrangler d1 create examhub-production`
+migrations_dir = "./migrations"
