@@ -180,13 +180,13 @@ export function assessImageQuality(
   }
   const contrast = Math.sqrt(varianceSum / sampleCount);
 
-  if (meanLuminance < 20) {
+  if (meanLuminance < 12) {
     return { quality: "LOW_LIGHT", meanLuminance, contrast };
   }
-  if (overexposedPixels / sampleCount > 0.45) {
+  if (overexposedPixels / sampleCount > 0.65) {
     return { quality: "GLARE", meanLuminance, contrast };
   }
-  if (contrast < 12) {
+  if (contrast < 6) {
     return { quality: "UNCERTAIN", meanLuminance, contrast };
   }
 
@@ -337,14 +337,13 @@ export function detectFacesBySpatialClustering(
           const Cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
 
           const isSkin =
-            Cr >= 133 &&
-            Cr <= 173 &&
-            Cb >= 77 &&
-            Cb <= 127 &&
-            Y > 40 &&
-            Y < 235 &&
-            r > g &&
-            g > b;
+            Cr >= 128 &&
+            Cr <= 178 &&
+            Cb >= 75 &&
+            Cb <= 135 &&
+            Y > 28 &&
+            Y < 245 &&
+            (r >= g - 18 && (r > b || g > b));
 
           if (isSkin) skinHits++;
           totalHits++;
@@ -499,7 +498,8 @@ export async function scanVideoFrame(
 
   const qualityRes = assessImageQuality(data, width, height);
 
-  if (qualityRes.quality !== "GOOD") {
+  // If frame is complete total blackout, skip detector
+  if (qualityRes.meanLuminance < 4) {
     return {
       rawFaces: [],
       imageQuality: qualityRes.quality,

@@ -17,6 +17,9 @@ import {
   VisionScanResult,
   EnrichedFace,
 } from "@/lib/proctoring-vision";
+import {
+  FaceMonitorStateMachine,
+} from "@/lib/face-monitor-state-machine";
 import { playProctorWarningBeep } from "@/lib/proctor-audio";
 
 export interface ProctorWarningBanner {
@@ -32,6 +35,7 @@ interface ProctoringWebcamMonitorProps {
   videoRef: React.RefObject<HTMLVideoElement>;
   isCameraActive: boolean;
   onViolation?: (type: string, message: string) => void;
+  onFaceCountChange?: (count: number) => void;
   className?: string;
 }
 
@@ -40,13 +44,14 @@ export function ProctoringWebcamMonitor({
   videoRef,
   isCameraActive,
   onViolation,
+  onFaceCountChange,
   className = "",
 }: ProctoringWebcamMonitorProps) {
   const [isMinimized, setIsMinimized] = useState(false);
   const [fps, setFps] = useState(0);
   const [latencyMs, setLatencyMs] = useState(0);
   const [faceCount, setFaceCount] = useState(1);
-  const [trackingState, setTrackingState] = useState<"VERIFIED" | "NEAR_EDGE" | "DEVIATED" | "MULTI_FACE" | "NO_FACE">("VERIFIED");
+  const [trackingState, setTrackingState] = useState<"VERIFIED" | "NEAR_EDGE" | "DEVIATED" | "MULTI_FACE" | "NO_FACE" | "CALIBRATING">("CALIBRATING");
   const [edgeWarningText, setEdgeWarningText] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<ProctorWarningBanner[]>([]);
 
@@ -56,6 +61,18 @@ export function ProctoringWebcamMonitor({
   const lastFpsCalcRef = useRef(Date.now());
   const frameCountRef = useRef(0);
   const lastEdgeAlertTimeRef = useRef(0);
+
+  const faceStateMachineRef = useRef(new FaceMonitorStateMachine({
+    MULTI_FACE_MIN_CONFIDENCE: 0.68,
+    MULTI_FACE_CONFIRM_FRAMES: 5,
+    MULTI_FACE_CONFIRM_WINDOW_MS: 2000,
+    MULTI_FACE_REQUIRED_RATIO: 0.70,
+    MULTI_FACE_COOLDOWN_MS: 12000,
+  }));
+  const cameraMountTimeRef = useRef(Date.now());
+  const noFaceStartTimeRef = useRef<number | null>(null);
+  const lastNoFaceViolationTimeRef = useRef<number>(0);
+  const lastMultiFaceViolationTimeRef = useRef<number>(0);
 
   // Push floating warning banner with audio alert
   const pushWarning = useCallback((banner: {
@@ -190,12 +207,12 @@ export function ProctoringWebcamMonitor({
 
     // 2. RENDER DETECTED FACES (Bounding Box, Corner Reticles, Wireframe Contours, Gaze Vector)
     if (scanResult.rawFaces.length === 0) {
-      // No face guide
       ctx.save();
-      ctx.fillStyle = "rgba(239, 68, 68, 0.85)";
+      const isWarmup = Date.now() - cameraMountTimeRef.current < 4500;
+      ctx.fillStyle = isWarmup ? "rgba(56, 189, 248, 0.85)" : "rgba(239, 68, 68, 0.85)";
       ctx.font = "bold 11px ui-monospace, SFMono-Regular, monospace";
       ctx.textAlign = "center";
-      ctx.fillText("⚠️ NO CANDIDATE DETECTED", w / 2, h / 2);
+      ctx.fillText(isWarmup ? "CALIBRATING SENSOR RETICLE..." : "⚠️ CANDIDATE NOT DETECTED", w / 2, h / 2);
       ctx.restore();
       return;
     }
@@ -362,48 +379,86 @@ export function ProctoringWebcamMonitor({
         const latency = Math.round(performance.now() - t0);
         setLatencyMs(latency);
 
-        // Update face counts and statuses
+        // Update face counts and statuses through temporal state machine
         const faces = scanResult.rawFaces;
         setFaceCount(faces.length);
+        onFaceCountChange?.(faces.length);
 
-        if (faces.length === 0) {
-          setTrackingState("NO_FACE");
-          setEdgeWarningText(null);
-        } else if (faces.length > 1) {
-          setTrackingState("MULTI_FACE");
-          setEdgeWarningText("Multiple faces detected in camera frame!");
-          const now = Date.now();
-          if (now - lastEdgeAlertTimeRef.current > 4000) {
-            lastEdgeAlertTimeRef.current = now;
-            pushWarning({
-              eventType: "MULTIPLE_FACES_DETECTED",
-              message: "Multiple persons detected in exam area. Keep room clear.",
-              severity: "high",
-            });
-            onViolation?.("multiple_faces", "Multiple persons detected in camera frame");
+        const isWarmingUp = Date.now() - cameraMountTimeRef.current < 4500;
+
+        const decision = faceStateMachineRef.current.processFrame({
+          rawFaces: scanResult.rawFaces,
+          frameWidth: scanResult.frameWidth,
+          frameHeight: scanResult.frameHeight,
+          timestamp: Date.now(),
+          imageQuality: scanResult.imageQuality,
+        });
+
+        if (isWarmingUp) {
+          setTrackingState("CALIBRATING");
+          setEdgeWarningText("Calibrating camera sensor...");
+        } else if (faces.length === 0) {
+          if (!noFaceStartTimeRef.current) {
+            noFaceStartTimeRef.current = Date.now();
           }
-        } else {
-          const primary = faces[0];
-          if (primary.edgeProximity?.isNearEdge) {
-            setTrackingState("NEAR_EDGE");
-            const side = primary.edgeProximity.edgeName?.toUpperCase() || "BORDER";
-            setEdgeWarningText(`Face is drifting near ${side} edge. Keep centered.`);
+          const elapsedNoFace = Date.now() - noFaceStartTimeRef.current;
 
+          setTrackingState("NO_FACE");
+          if (elapsedNoFace > 2500) {
+            setEdgeWarningText("Candidate not detected. Please face the camera.");
+          } else {
+            setEdgeWarningText(null);
+          }
+
+          // Debounce: candidate must be absent for 8 continuous seconds before strike/alarm!
+          if (elapsedNoFace >= 8000) {
             const now = Date.now();
-            if (now - lastEdgeAlertTimeRef.current > 5000) {
-              lastEdgeAlertTimeRef.current = now;
+            if (now - lastNoFaceViolationTimeRef.current > 12000) {
+              lastNoFaceViolationTimeRef.current = now;
               pushWarning({
-                eventType: "EDGE_PROXIMITY",
-                message: `Face near ${side} edge of frame. Please remain centered.`,
+                eventType: "CANDIDATE_MISSING",
+                message: "No candidate detected in camera (>8s). Return to frame.",
                 severity: "technical",
               });
+              onViolation?.("face_absent", "Candidate face missing from camera frame for over 8 seconds");
             }
-          } else if (primary.headPose?.isDeviated) {
-            setTrackingState("DEVIATED");
-            setEdgeWarningText(`Head turned ${primary.headPose.direction}. Look at screen.`);
-          } else {
+          }
+        } else {
+          // Face is present, clear absence timer
+          noFaceStartTimeRef.current = null;
+
+          if (decision.state === "MULTIPLE_CONFIRMED") {
+            setTrackingState("MULTI_FACE");
+            setEdgeWarningText("Multiple persons confirmed in camera view!");
+
+            if (decision.shouldEmitViolation) {
+              const now = Date.now();
+              if (now - lastMultiFaceViolationTimeRef.current > 12000) {
+                lastMultiFaceViolationTimeRef.current = now;
+                pushWarning({
+                  eventType: "MULTIPLE_FACES_DETECTED",
+                  message: "Multiple persons detected in exam area. Keep room clear.",
+                  severity: "high",
+                });
+                onViolation?.("multiple_faces", "Multiple individuals confirmed in camera frame");
+              }
+            }
+          } else if (decision.state === "POSSIBLE_MULTIPLE") {
             setTrackingState("VERIFIED");
-            setEdgeWarningText(null);
+            setEdgeWarningText("Verifying candidate presence...");
+          } else {
+            const primary = faces[0];
+            if (primary.edgeProximity?.isNearEdge) {
+              setTrackingState("NEAR_EDGE");
+              const side = primary.edgeProximity.edgeName?.toUpperCase() || "BORDER";
+              setEdgeWarningText(`Face is drifting near ${side} edge. Keep centered.`);
+            } else if (primary.headPose?.isDeviated) {
+              setTrackingState("DEVIATED");
+              setEdgeWarningText(`Head turned ${primary.headPose.direction}. Look at screen.`);
+            } else {
+              setTrackingState("VERIFIED");
+              setEdgeWarningText(null);
+            }
           }
         }
 
@@ -430,7 +485,7 @@ export function ProctoringWebcamMonitor({
       isRunning = false;
       if (animFrameRef.current) clearTimeout(animFrameRef.current);
     };
-  }, [videoRef, renderEdgesClearly, pushWarning, onViolation]);
+  }, [videoRef, renderEdgesClearly, pushWarning, onViolation, onFaceCountChange]);
 
   return (
     <aside
@@ -508,59 +563,59 @@ export function ProctoringWebcamMonitor({
           </div>
         </div>
 
-        {/* Video + Clear Edge HUD Canvas Assembly */}
-        {!isMinimized && (
-          <div className="space-y-2">
-            <div className={`relative aspect-[4/3] w-full rounded-xl overflow-hidden bg-slate-950 transition-all ${
-              trackingState === "MULTI_FACE"
-                ? "border-2 border-rose-500 shadow-[0_0_15px_rgba(239,68,68,0.4)]"
-                : trackingState === "NEAR_EDGE"
-                ? "border-2 border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.35)]"
-                : "border border-sky-400/30"
-            }`}>
-              {/* Raw Camera Video Stream */}
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-cover transform -scale-x-100"
-              />
+        {/* Video + Clear Edge HUD Canvas Assembly (Persisted in DOM) */}
+        <div className={`space-y-2 ${isMinimized ? "hidden" : "block"}`}>
+          <div className={`relative aspect-[4/3] w-full rounded-xl overflow-hidden bg-slate-950 transition-all ${
+            trackingState === "MULTI_FACE"
+              ? "border-2 border-rose-500 shadow-[0_0_15px_rgba(239,68,68,0.4)]"
+              : trackingState === "NEAR_EDGE"
+              ? "border-2 border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.35)]"
+              : "border border-sky-400/30"
+          }`}>
+            {/* Raw Camera Video Stream */}
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover transform -scale-x-100"
+            />
 
-              {/* Edge-Rendering Canvas Overlay */}
-              <canvas
-                ref={hudCanvasRef}
-                className="absolute inset-0 w-full h-full pointer-events-none transform -scale-x-100"
-                aria-hidden="true"
-              />
+            {/* Edge-Rendering Canvas Overlay */}
+            <canvas
+              ref={hudCanvasRef}
+              className="absolute inset-0 w-full h-full pointer-events-none transform -scale-x-100"
+              aria-hidden="true"
+            />
 
-              {/* Live Edge Warning Banner Ribbon at Bottom of Viewport */}
-              {edgeWarningText && (
-                <div className="absolute bottom-1.5 inset-x-1.5 rounded-lg px-2 py-0.5 bg-black/85 backdrop-blur-md border border-amber-500/60 text-[10px] font-semibold text-amber-300 text-center shadow-lg truncate">
-                  {edgeWarningText}
-                </div>
-              )}
-            </div>
-
-            {/* Bottom Status Ticker */}
-            <div className="flex items-center justify-between text-[10px] font-mono px-1 text-slate-300">
-              <span className="flex items-center gap-1 text-sky-300">
-                <Mic size={11} className="text-sky-400" />
-                Mic: Active
-              </span>
-
-              <span className={`px-1.5 py-0.5 rounded font-bold ${
-                faceCount === 1
-                  ? "bg-sky-500/20 text-sky-300 border border-sky-400/30"
-                  : faceCount === 0
-                  ? "bg-amber-500/20 text-amber-300 border border-amber-400/40 animate-pulse"
-                  : "bg-rose-500/20 text-rose-300 border border-rose-400/40 animate-pulse"
-              }`}>
-                {faceCount === 1 ? "✓ 1 Face Centered" : faceCount === 0 ? "⚠ No Face" : `🚨 Multi-Face (${faceCount})`}
-              </span>
-            </div>
+            {/* Live Edge Warning Banner Ribbon at Bottom of Viewport */}
+            {edgeWarningText && (
+              <div className="absolute bottom-1.5 inset-x-1.5 rounded-lg px-2 py-0.5 bg-black/85 backdrop-blur-md border border-amber-500/60 text-[10px] font-semibold text-amber-300 text-center shadow-lg truncate">
+                {edgeWarningText}
+              </div>
+            )}
           </div>
-        )}
+
+          {/* Bottom Status Ticker */}
+          <div className="flex items-center justify-between text-[10px] font-mono px-1 text-slate-300">
+            <span className="flex items-center gap-1 text-sky-300">
+              <Mic size={11} className="text-sky-400" />
+              Mic: Active
+            </span>
+
+            <span className={`px-1.5 py-0.5 rounded font-bold ${
+              trackingState === "CALIBRATING"
+                ? "bg-sky-500/20 text-sky-300 border border-sky-400/30"
+                : faceCount === 1
+                ? "bg-sky-500/20 text-sky-300 border border-sky-400/30"
+                : faceCount === 0
+                ? "bg-amber-500/20 text-amber-300 border border-amber-400/40 animate-pulse"
+                : "bg-rose-500/20 text-rose-300 border border-rose-400/40 animate-pulse"
+            }`}>
+              {trackingState === "CALIBRATING" ? "⚙ Calibrating..." : faceCount === 1 ? "✓ 1 Face Centered" : faceCount === 0 ? "⚠ No Face" : `🚨 Multi-Face (${faceCount})`}
+            </span>
+          </div>
+        </div>
       </div>
     </aside>
   );

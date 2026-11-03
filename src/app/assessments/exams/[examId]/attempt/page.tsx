@@ -128,6 +128,9 @@ export default function LiveExaminationPage({ params }: { params: { examId: stri
   const visionCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const visionIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const screenMetricsRef = useRef<{ width: number; height: number; screenX: number; screenY: number }>({ width: 0, height: 0, screenX: 0, screenY: 0 });
+  const tabSwitchTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const windowBlurTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const proctorGracePeriodRef = useRef<number>(0);
 
   useEffect(() => {
     proctoringStartedRef.current = proctoringStarted;
@@ -636,6 +639,7 @@ export default function LiveExaminationPage({ params }: { params: { examId: stri
   // 3. Enter Fullscreen and Begin Proctoring (All Devices)
   const handleLaunchProctoredExam = async () => {
     initAudioContext();
+    proctorGracePeriodRef.current = Date.now() + 6000; // 6-second grace period during full-screen entry
     if (typeof window !== "undefined") {
       screenMetricsRef.current = {
         width: window.screen.width,
@@ -660,130 +664,15 @@ export default function LiveExaminationPage({ params }: { params: { examId: stri
     initWebcamStream();
   };
 
-  // 3B. Real-Time AI Computer Vision Proctoring: Dual Face Recognition & Handheld Phone Detection
+  // 3B. Proctoring State Lifecycle Cleanup
   useEffect(() => {
-    if (submitting || isDisqualified) return;
-
-    if (!visionCanvasRef.current && typeof document !== "undefined") {
-      visionCanvasRef.current = document.createElement("canvas");
-      visionCanvasRef.current.width = 160;
-      visionCanvasRef.current.height = 120;
-    }
-
-    const runVisionScan = async () => {
-      const activeVideo = examVideoRef.current || preflightVideoRef.current;
-      if (!activeVideo || activeVideo.readyState < 2 || activeVideo.videoWidth === 0) return;
-
-      try {
-        const canvas = visionCanvasRef.current;
-        if (!canvas) return;
-
-        // 1. Run multi-tiered browser computer vision scan
-        const scanRes = await scanVideoFrame(activeVideo, canvas);
-
-        // 2. Feed detections into temporal observation window state machine
-        const decision = faceStateMachineRef.current.processFrame({
-          rawFaces: scanRes.rawFaces,
-          frameWidth: scanRes.frameWidth,
-          frameHeight: scanRes.frameHeight,
-          timestamp: Date.now(),
-          imageQuality: scanRes.imageQuality,
-        });
-
-        setDetectedFaceCount(decision.reliableFaceCount);
-
-        // 3. Update developer diagnostics in real time
-        setProctorDiagnostics(prev => ({
-          camera: activeVideo.videoWidth > 0 ? "OK" : "NO_SIGNAL",
-          resolution: `${activeVideo.videoWidth || 640} × ${activeVideo.videoHeight || 480}`,
-          fps: 12,
-          detectedFaces: decision.diagnostics.detectedFaces,
-          reliableFaces: decision.diagnostics.reliableFaces,
-          primaryConfidence: decision.diagnostics.primaryConfidence,
-          secondaryConfidence: decision.diagnostics.secondaryConfidence,
-          trackedFaces: decision.diagnostics.trackedFaces,
-          multiFacePersistence: decision.diagnostics.multiFacePersistence,
-          faceMonitorState: decision.state,
-          imageQuality: scanRes.imageQuality,
-          lastEvent: decision.shouldEmitViolation ? "MULTIPLE_FACES" : (prev?.lastEvent || "NONE"),
-        }));
-
-        // 4. State Machine Transition & Controlled Action Dispatch
-        if (decision.state === "MULTIPLE_CONFIRMED") {
-          setFaceTrackingStatus("dual_face");
-          if (decision.shouldEmitViolation) {
-            dualFaceStrikesRef.current += 1;
-            const details = decision.violationDetails || `Dual Face Recognition: Persistent secondary face confirmed in camera view! (Warning ${dualFaceStrikesRef.current}/3)`;
-            recordViolation("multiple_faces", details);
-            triggerLockdownShield(
-              `Dual Face Recognition: Multiple individuals confirmed in camera frame. (Warning ${dualFaceStrikesRef.current}/3). Only registered candidate permitted.`
-            );
-          }
-        } else if (decision.state === "POSSIBLE_MULTIPLE") {
-          // Observation window in progress - no violation, no lockdown
-          setFaceTrackingStatus("verifying");
-        } else if (decision.state === "NO_FACE") {
-          setFaceTrackingStatus("no_face");
-          noFaceConsecutiveRef.current += 1;
-          if (noFaceConsecutiveRef.current >= 4) {
-            noFaceConsecutiveRef.current = 0;
-            showToast("⚠️ Candidate Missing: No face detected in camera! Please center your face in view.");
-            recordViolation("face_absent" as any, "Candidate face missing from camera frame");
-          }
-        } else if (decision.state === "UNCERTAIN") {
-          setFaceTrackingStatus("uncertain");
-          // Low lighting / glare is treated as uncertainty, never misconduct
-        } else {
-          // ONE_FACE (CLEAR)
-          setFaceTrackingStatus("verified");
-          noFaceConsecutiveRef.current = 0;
-        }
-
-        // 5. Handheld Phone & Secondary Device Screen Glare Detection
-        const ctx = canvas.getContext("2d", { willReadFrequently: true });
-        if (ctx) {
-          const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const data = frame.data;
-          const w = canvas.width;
-          const h = canvas.height;
-          let phoneGlarePixels = 0;
-
-          for (let y = Math.floor(h * 0.45); y < h; y += 3) {
-            for (let x = Math.floor(w * 0.2); x < Math.floor(w * 0.8); x += 3) {
-              const idx = (y * w + x) * 4;
-              const r = data[idx];
-              const g = data[idx + 1];
-              const b = data[idx + 2];
-              const brightness = (r + g + b) / 3;
-
-              if (brightness > 240 && Math.abs(r - g) < 14 && Math.abs(g - b) < 18) {
-                phoneGlarePixels++;
-              }
-            }
-          }
-
-          if (phoneGlarePixels > 95) {
-            setPhoneDetected(true);
-            recordViolation(
-              "phone_detected",
-              `Mobile Phone Detected: Unauthorized handheld mobile device in camera view!`
-            );
-            triggerLockdownShield(
-              `Mobile Phone Detected: Handheld electronic device recognized in camera frame. (Warning ${phoneStrikesRef.current}/3). Mobile phones prohibited.`
-            );
-          } else {
-            setPhoneDetected(false);
-          }
-        }
-      } catch (e) {}
-    };
-
-    visionIntervalRef.current = setInterval(runVisionScan, 800);
     return () => {
       if (visionIntervalRef.current) clearInterval(visionIntervalRef.current);
+      if (tabSwitchTimerRef.current) clearTimeout(tabSwitchTimerRef.current);
+      if (windowBlurTimerRef.current) clearTimeout(windowBlurTimerRef.current);
       if (faceStateMachineRef.current) faceStateMachineRef.current.reset();
     };
-  }, [submitting, isDisqualified]);
+  }, []);
 
   // Simulation handlers for testing & proctor audit demonstration
   const handleSimulateDualFace = () => {
@@ -827,73 +716,80 @@ export default function LiveExaminationPage({ params }: { params: { examId: stri
 
     const cleanupFullscreen = addFullscreenListener(handleFullscreenChange);
 
-    // B. Tab Switch & Visibility Change (Page Visibility API & Desktop Spaces)
+    // B. Real Tab Switch Detection (Debounced with Page Visibility API)
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "hidden") {
-        tabSwitchedRef.current = true;
-        setFlashingTitle(true, "⚠️ PROCTORING ALERT: SCREEN / TAB SWITCH DETECTED!");
-        recordViolation("tab_switch", "Screen change, tab switched, or desktop space changed during examination");
-        triggerLockdownShield("⚠️ Screen Change Warning: You navigated away from the proctored test cockpit or switched tabs/spaces. All screen changes are strictly logged.");
-        playProctorWarningSound();
+      if (!proctoringStarted || submitting || isDisqualified) return;
+      if (Date.now() < proctorGracePeriodRef.current) return;
 
-        // Trigger desktop system notification if permitted
-        if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
-          new Notification("⚠️ PROCTORING ALERT: SCREEN CHANGE DETECTED!", {
-            body: "You navigated away from your active examination. Return immediately to avoid disqualification.",
-            icon: "/favicon.ico",
-          });
-        }
+      if (document.visibilityState === "hidden") {
+        if (tabSwitchTimerRef.current) clearTimeout(tabSwitchTimerRef.current);
+        // Only strike if tab/space is actually hidden continuously for > 1200ms
+        tabSwitchTimerRef.current = setTimeout(() => {
+          tabSwitchedRef.current = true;
+          setFlashingTitle(true, "⚠️ PROCTORING ALERT: SCREEN / TAB SWITCH DETECTED!");
+          recordViolation("tab_switch", "Screen change, tab switched, or desktop space changed during examination");
+          triggerLockdownShield("⚠️ Screen Change Warning: You navigated away from the proctored test cockpit or switched tabs/spaces. All screen changes are strictly logged.");
+
+          // Trigger desktop system notification if permitted
+          if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+            new Notification("⚠️ PROCTORING ALERT: SCREEN CHANGE DETECTED!", {
+              body: "You navigated away from your active examination. Return immediately to avoid disqualification.",
+              icon: "/favicon.ico",
+            });
+          }
+        }, 1200);
       } else if (document.visibilityState === "visible") {
-        setFlashingTitle(false);
-        if (tabSwitchedRef.current) {
-          tabSwitchedRef.current = false;
-          triggerLockdownShield("Security Strike Logged: Screen / Tab switch detected. You navigated away from the proctored test cockpit.");
-          showToast("🚨 Security Warning: Screen change infraction logged! Strike recorded.");
-          playProctorWarningSound();
+        // Returned to test window
+        if (tabSwitchTimerRef.current) {
+          clearTimeout(tabSwitchTimerRef.current);
+          tabSwitchTimerRef.current = null;
         }
+        setFlashingTitle(false);
+        // Do NOT log a duplicate strike upon return!
+        tabSwitchedRef.current = false;
       }
     };
 
-    // C. Window Blur & Focus Detection (Clicks outside, split screen, floating overlays, app switch)
+    // C. Real Window Blur & Focus Detection (Debounced - No false alarms on clicks or UI controls)
     const handleWindowBlur = () => {
-      tabSwitchedRef.current = true;
-      setFlashingTitle(true, "⚠️ PROCTORING ALERT: WINDOW FOCUS LOST!");
-      recordViolation("window_blur", "Test window lost focus. External application, secondary screen, or floating overlay invoked");
-      triggerLockdownShield("⚠️ Screen Change / Focus Lost: The examination window lost active focus. Overlay tools, secondary monitors, and application switches are strictly prohibited.");
-      playProctorWarningSound();
+      if (!proctoringStarted || submitting || isDisqualified) return;
+      if (Date.now() < proctorGracePeriodRef.current) return;
+      if (document.visibilityState === "hidden") return; // Covered by handleVisibilityChange
+
+      if (windowBlurTimerRef.current) clearTimeout(windowBlurTimerRef.current);
+      // Require window to remain continuously unfocused for > 2800ms
+      windowBlurTimerRef.current = setTimeout(() => {
+        if (typeof document !== "undefined" && !document.hasFocus() && document.visibilityState === "visible") {
+          tabSwitchedRef.current = true;
+          setFlashingTitle(true, "⚠️ PROCTORING ALERT: WINDOW FOCUS LOST!");
+          recordViolation("window_blur", "Test window lost focus. External application, secondary screen, or floating overlay invoked (>2.8s)");
+          triggerLockdownShield("⚠️ Screen Change / Focus Lost: The examination window lost active focus. Overlay tools, secondary monitors, and application switches are strictly prohibited.");
+        }
+      }, 2800);
     };
 
     const handleWindowFocus = () => {
-      setFlashingTitle(false);
-      if (tabSwitchedRef.current) {
-        tabSwitchedRef.current = false;
-        triggerLockdownShield("Security Warning: Examination window regained focus after security strike.");
-        showToast("🚨 Security Warning: Focus restored after security strike.");
-        playProctorWarningSound();
+      if (windowBlurTimerRef.current) {
+        clearTimeout(windowBlurTimerRef.current);
+        windowBlurTimerRef.current = null;
       }
+      setFlashingTitle(false);
+      tabSwitchedRef.current = false;
     };
 
     // D. Multi-Monitor & Screen Display Layout Change Detection
     const handleScreenChangeCheck = () => {
-      if (typeof window === "undefined") return;
-
-      // Check if document lost focus silently while remaining visible
-      if (!document.hasFocus() && !tabSwitchedRef.current && document.visibilityState === "visible") {
-        tabSwitchedRef.current = true;
-        recordViolation("window_blur", "Examination window lost focus to external tool or secondary screen");
-        triggerLockdownShield("Screen Change / Focus Lost: The examination window is no longer the active window. You must remain focused on this test cockpit.");
-        playProctorWarningSound();
-      }
+      if (typeof window === "undefined" || !proctoringStarted) return;
+      if (Date.now() < proctorGracePeriodRef.current) return;
 
       // Check if candidate dragged window to another monitor or changed screen resolution
       if (screenMetricsRef.current.width > 0) {
         const curW = window.screen.width;
         const curH = window.screen.height;
-        if (Math.abs(curW - screenMetricsRef.current.width) > 80 || Math.abs(curH - screenMetricsRef.current.height) > 80) {
+        if (Math.abs(curW - screenMetricsRef.current.width) > 150 || Math.abs(curH - screenMetricsRef.current.height) > 150) {
           screenMetricsRef.current = { width: curW, height: curH, screenX: window.screenX, screenY: window.screenY };
           recordViolation("window_blur", "Screen display layout change detected (moved between external monitors)");
           triggerLockdownShield("⚠️ Screen Change Detected: The examination window was moved to a different monitor or display configuration changed. Multi-monitor setups are strictly prohibited.");
-          playProctorWarningSound();
         }
       }
     };
@@ -1040,12 +936,9 @@ export default function LiveExaminationPage({ params }: { params: { examId: stri
       }
     };
 
-    // I. Mouse boundary trap (Cursor moving towards browser tabs/address bar or Dock)
-    const handleMouseLeave = (e: MouseEvent) => {
-      if ((e.clientY <= 2 || e.clientY >= window.innerHeight - 2) && proctoringStarted) {
-        showToast("⚠️ Cursor moving outside examination window! Remain inside exam.");
-        playProctorWarningSound();
-      }
+    // I. Mouse boundary check (Passive - no loud disruptive alarm)
+    const handleMouseLeave = () => {
+      // Intentionally passive to avoid false alerts when moving mouse near controls
     };
 
     // J. Prevent accidental window closing
@@ -1054,8 +947,8 @@ export default function LiveExaminationPage({ params }: { params: { examId: stri
       e.returnValue = "Leaving this proctored examination will invalidate your attempt. Are you sure?";
     };
 
-    // Periodic background monitor for silent focus loss & display layout change
-    const screenInterval = setInterval(handleScreenChangeCheck, 800);
+    // Periodic background monitor for screen display layout change
+    const screenInterval = setInterval(handleScreenChangeCheck, 1500);
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("blur", handleWindowBlur);
@@ -1072,6 +965,8 @@ export default function LiveExaminationPage({ params }: { params: { examId: stri
     return () => {
       cleanupFullscreen();
       clearInterval(screenInterval);
+      if (tabSwitchTimerRef.current) clearTimeout(tabSwitchTimerRef.current);
+      if (windowBlurTimerRef.current) clearTimeout(windowBlurTimerRef.current);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("blur", handleWindowBlur);
       window.removeEventListener("focus", handleWindowFocus);
@@ -1979,20 +1874,17 @@ export default function LiveExaminationPage({ params }: { params: { examId: stri
             videoRef={examVideoRef}
             stream={mediaStreamRef.current}
             isCameraActive={cameraActive}
+            onFaceCountChange={(count) => setDetectedFaceCount(count)}
             onViolation={(type, msg) => {
               if (type === "multiple_faces") {
                 recordViolation("multiple_faces", msg);
+                triggerLockdownShield(
+                  `Dual Face Recognition: Multiple individuals confirmed in camera frame. Only registered candidate permitted.`
+                );
+              } else if (type === "face_absent") {
+                recordViolation("face_absent" as any, msg);
               }
             }}
-          />
-
-          {/* Hidden video element fallback if monitor is minimized */}
-          <video
-            ref={examVideoRef}
-            autoPlay
-            playsInline
-            muted
-            className="hidden"
           />
         </div>
       )}
