@@ -108,56 +108,51 @@ describe("Real Proctor Warnings & Debounce Reliability Tests", () => {
     });
   });
 
-  describe("Real Window Blur Debouncing Logic", () => {
-    it("does NOT strike when candidate clicks inside window or UI element (blur < 2800ms)", () => {
+  describe("Real Window Blur & Focus Logic", () => {
+    it("does NOT strike when candidate clicks inside window or UI element (document remains visible)", () => {
       let violationCount = 0;
-      let blurTimer: NodeJS.Timeout | null = null;
 
-      const onBlur = () => {
-        blurTimer = setTimeout(() => {
-          violationCount++;
-        }, 2800);
-      };
-
-      const onFocus = () => {
-        if (blurTimer) {
-          clearTimeout(blurTimer);
-          blurTimer = null;
+      const handleWindowBlur = (isDocumentVisible: boolean) => {
+        // While document remains visible, focus shifts (e.g. fullscreen transition, clicks)
+        // must never trigger false strikes.
+        if (isDocumentVisible) {
+          return;
         }
+        violationCount++;
       };
 
-      // Quick blur on click or interaction (500ms)
-      onBlur();
-      vi.advanceTimersByTime(500);
-      onFocus();
-
-      vi.advanceTimersByTime(3000);
+      // Focus lost but document is visible (reading question, fullscreen transition)
+      handleWindowBlur(true);
+      vi.advanceTimersByTime(4000);
       expect(violationCount).toBe(0);
     });
 
-    it("records a genuine window blur strike when window remains unfocused for > 2800ms", () => {
+    it("records a strike only when navigation causes actual visibility hidden for >= 1200ms", () => {
       let violationCount = 0;
-      let blurTimer: NodeJS.Timeout | null = null;
+      let tabTimer: NodeJS.Timeout | null = null;
 
-      const onBlur = () => {
-        blurTimer = setTimeout(() => {
-          violationCount++;
-        }, 2800);
-      };
-
-      const onFocus = () => {
-        if (blurTimer) {
-          clearTimeout(blurTimer);
-          blurTimer = null;
+      const handleVisibilityChange = (state: "hidden" | "visible") => {
+        if (state === "hidden") {
+          tabTimer = setTimeout(() => {
+            violationCount++;
+          }, 1200);
+        } else {
+          if (tabTimer) {
+            clearTimeout(tabTimer);
+            tabTimer = null;
+          }
         }
       };
 
-      onBlur();
-      vi.advanceTimersByTime(3000);
-      expect(violationCount).toBe(1);
+      // Momentary flicker (300ms)
+      handleVisibilityChange("hidden");
+      vi.advanceTimersByTime(300);
+      handleVisibilityChange("visible");
+      expect(violationCount).toBe(0);
 
-      // Regaining focus should NOT record a second strike
-      onFocus();
+      // Real navigation away (>1200ms)
+      handleVisibilityChange("hidden");
+      vi.advanceTimersByTime(1300);
       expect(violationCount).toBe(1);
     });
   });
@@ -227,3 +222,4 @@ describe("Real Proctor Warnings & Debounce Reliability Tests", () => {
     });
   });
 });
+

@@ -639,8 +639,9 @@ export default function LiveExaminationPage({ params }: { params: { examId: stri
   // 3. Enter Fullscreen and Begin Proctoring (All Devices)
   const handleLaunchProctoredExam = async () => {
     initAudioContext();
-    proctorGracePeriodRef.current = Date.now() + 6000; // 6-second grace period during full-screen entry
+    proctorGracePeriodRef.current = Date.now() + 8000; // 8-second grace period during full-screen entry
     if (typeof window !== "undefined") {
+      window.focus();
       screenMetricsRef.current = {
         width: window.screen.width,
         height: window.screen.height,
@@ -662,6 +663,9 @@ export default function LiveExaminationPage({ params }: { params: { examId: stri
     }
     // Launch webcam asynchronously so camera permission never blocks exam access
     initWebcamStream();
+    if (typeof window !== "undefined") {
+      window.focus();
+    }
   };
 
   // 3B. Proctoring State Lifecycle Cleanup
@@ -750,22 +754,10 @@ export default function LiveExaminationPage({ params }: { params: { examId: stri
       }
     };
 
-    // C. Real Window Blur & Focus Detection (Debounced - No false alarms on clicks or UI controls)
+    // C. Window Focus Management (No false strikes while document is visible)
     const handleWindowBlur = () => {
-      if (!proctoringStarted || submitting || isDisqualified) return;
-      if (Date.now() < proctorGracePeriodRef.current) return;
-      if (document.visibilityState === "hidden") return; // Covered by handleVisibilityChange
-
-      if (windowBlurTimerRef.current) clearTimeout(windowBlurTimerRef.current);
-      // Require window to remain continuously unfocused for > 2800ms
-      windowBlurTimerRef.current = setTimeout(() => {
-        if (typeof document !== "undefined" && !document.hasFocus() && document.visibilityState === "visible") {
-          tabSwitchedRef.current = true;
-          setFlashingTitle(true, "⚠️ PROCTORING ALERT: WINDOW FOCUS LOST!");
-          recordViolation("window_blur", "Test window lost focus. External application, secondary screen, or floating overlay invoked (>2.8s)");
-          triggerLockdownShield("⚠️ Screen Change / Focus Lost: The examination window lost active focus. Overlay tools, secondary monitors, and application switches are strictly prohibited.");
-        }
-      }, 2800);
+      // Benign OS focus changes or fullscreen transitions while document remains visible
+      // are never penalized as tab switches to prevent false alarms.
     };
 
     const handleWindowFocus = () => {
@@ -1188,7 +1180,14 @@ export default function LiveExaminationPage({ params }: { params: { examId: stri
     setShowFullscreenWarning(false);
     setShowFocusShield(false);
     setLockdownCooldown(0);
+    tabSwitchedRef.current = false;
+    proctorGracePeriodRef.current = Date.now() + 6000;
+    if (tabSwitchTimerRef.current) clearTimeout(tabSwitchTimerRef.current);
+    if (windowBlurTimerRef.current) clearTimeout(windowBlurTimerRef.current);
     if (cooldownIntervalRef.current) clearInterval(cooldownIntervalRef.current);
+    if (typeof window !== "undefined") {
+      window.focus();
+    }
   };
 
   // Metrics
