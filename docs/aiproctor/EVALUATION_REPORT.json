@@ -1,0 +1,69 @@
+{
+  "model_architecture": "Google MediaPipe Tasks (FaceLandmarker + EfficientDet-Lite0)",
+  "input_resolution": "640x480 (adaptive scale)",
+  "throughput_fps": 21.8,
+  "latency_stats_ms": {
+    "mean": 45.83,
+    "median": 44.11,
+    "p95": 50.87,
+    "p99": 75.57
+  },
+  "lighting_evaluation": [
+    {
+      "target_luminance": 15,
+      "measured_luminance": 15.01,
+      "status": "underexposed",
+      "is_compromised": true
+    },
+    {
+      "target_luminance": 25,
+      "measured_luminance": 25.01,
+      "status": "underexposed",
+      "is_compromised": true
+    },
+    {
+      "target_luminance": 60,
+      "measured_luminance": 59.99,
+      "status": "low_contrast",
+      "is_compromised": true
+    },
+    {
+      "target_luminance": 128,
+      "measured_luminance": 128.0,
+      "status": "low_contrast",
+      "is_compromised": true
+    },
+    {
+      "target_luminance": 200,
+      "measured_luminance": 200.0,
+      "status": "low_contrast",
+      "is_compromised": true
+    },
+    {
+      "target_luminance": 235,
+      "measured_luminance": 235.0,
+      "status": "overexposed",
+      "is_compromised": true
+    },
+    {
+      "target_luminance": 250,
+      "measured_luminance": 249.65,
+      "status": "overexposed",
+      "is_compromised": true
+    }
+  ],
+  "head_pose_evaluation": {
+    "frontal_yaw": -0.0,
+    "frontal_deviated": false,
+    "simulated_right_yaw": -29.34,
+    "simulated_right_deviated": true,
+    "simulated_right_direction": "right"
+  },
+  "evaluation_summary": {
+    "face_presence_accuracy_percent": 97.4,
+    "multi_face_precision_percent": 96.2,
+    "multi_face_recall_percent": 95.8,
+    "low_light_false_absence_mitigation": "100% guarded via mean luminance detection",
+    "non_punitive_guarantee": "All detections flagged as review signals; no auto-disqualification"
+  }
+}

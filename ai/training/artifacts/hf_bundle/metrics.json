@@ -1,0 +1,19 @@
+{
+  "model_architecture": "YOLO11-nano / YOLOv8-hybrid",
+  "source": "Hugging Face Hub (Ultralytics)",
+  "training_duration_sec": 23.52,
+  "device": "mps",
+  "epochs": 2,
+  "mAP_50": 0.2156,
+  "precision": 0.45,
+  "recall": 0.125,
+  "classes": [
+    "cell_phone",
+    "smartwatch",
+    "book",
+    "paper_notes",
+    "earphones_headset",
+    "secondary_screen"
+  ],
+  "trained_at": "2026-10-30T07:02:38Z"
+}

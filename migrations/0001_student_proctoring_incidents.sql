@@ -24,3 +24,4 @@ CREATE INDEX IF NOT EXISTS idx_proctoring_incidents_student ON student_proctorin
 CREATE INDEX IF NOT EXISTS idx_proctoring_incidents_attempt ON student_proctoring_incidents(attempt_id);
 CREATE INDEX IF NOT EXISTS idx_proctoring_incidents_type ON student_proctoring_incidents(incident_type);
 CREATE INDEX IF NOT EXISTS idx_proctoring_incidents_cancelled ON student_proctoring_incidents(exam_cancelled);
+

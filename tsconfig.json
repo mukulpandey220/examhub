@@ -35,6 +35,8 @@
     ".next-production/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "backend",
+    "ai-service"
   ]
 }

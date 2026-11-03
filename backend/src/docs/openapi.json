@@ -1,0 +1,114 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "AI Proctoring Platform REST API",
+    "version": "1.2.0",
+    "description": "Production REST API for candidate examination workflows, telemetry rule evaluation, and institutional invigilator review."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3001/api",
+      "description": "Local Development Server"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Backend health status",
+        "responses": {
+          "200": { "description": "Backend is healthy and operational" }
+        }
+      }
+    },
+    "/exams": {
+      "get": {
+        "summary": "List published examinations",
+        "responses": {
+          "200": { "description": "Array of examinations" }
+        }
+      }
+    },
+    "/exams/{examId}": {
+      "get": {
+        "summary": "Get examination metadata",
+        "parameters": [
+          { "name": "examId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Examination details" },
+          "404": { "description": "Examination not found" }
+        }
+      }
+    },
+    "/exams/{examId}/questions": {
+      "get": {
+        "summary": "Get exam questions (answers masked for student role)",
+        "parameters": [
+          { "name": "examId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Sanitized questions array" }
+        }
+      }
+    },
+    "/exams/{examId}/attempts": {
+      "post": {
+        "summary": "Initialize or resume candidate attempt and proctoring session",
+        "parameters": [
+          { "name": "examId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "201": { "description": "Created attempt and proctoring session" }
+        }
+      }
+    },
+    "/exams/{examId}/submit": {
+      "post": {
+        "summary": "Finalize and submit examination attempt",
+        "parameters": [
+          { "name": "examId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Final score and submission receipt" }
+        }
+      }
+    },
+    "/proctoring/sessions": {
+      "post": {
+        "summary": "Register active proctoring session",
+        "responses": {
+          "201": { "description": "Created session" }
+        }
+      }
+    },
+    "/proctoring/events": {
+      "post": {
+        "summary": "Ingest flagged proctoring observation",
+        "responses": {
+          "201": { "description": "Recorded event" }
+        }
+      }
+    },
+    "/proctoring/events/{eventId}/review": {
+      "patch": {
+        "summary": "Submit human invigilator determination",
+        "parameters": [
+          { "name": "eventId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Updated event with reviewer decision" }
+        }
+      }
+    },
+    "/admin/proctoring/overview": {
+      "get": {
+        "summary": "Invigilator command center KPI metrics and analytics",
+        "responses": {
+          "200": { "description": "Summary KPIs and recent streams" },
+          "403": { "description": "Unauthorized (Staff only)" }
+        }
+      }
+    }
+  }
+}
+

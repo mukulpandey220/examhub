@@ -1,0 +1,259 @@
+// ====================================================================
+// Master Prisma Schema for AI Proctoring Platform
+// Normalized models covering organizations, users, exams, sessions,
+// proctoring events, evidence files, models, and audit logs.
+// ====================================================================
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum UserRole {
+  STUDENT
+  INVIGILATOR
+  ADMINISTRATOR
+}
+
+enum ExamStatus {
+  DRAFT
+  PUBLISHED
+  IN_PROGRESS
+  COMPLETED
+  ARCHIVED
+}
+
+enum SessionStatus {
+  INITIALIZED
+  ACTIVE
+  PAUSED
+  INTERRUPTED
+  COMPLETED
+}
+
+enum EventSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  TECHNICAL
+}
+
+enum ReviewStatus {
+  PENDING
+  REVIEWED
+  DISMISSED
+  NEEDS_FOLLOW_UP
+}
+
+model Organization {
+  id          String        @id @default(uuid())
+  name        String
+  domain      String        @unique
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  users       User[]
+  exams       Examination[]
+
+  @@map("organizations")
+}
+
+model User {
+  id              String         @id @default(uuid())
+  orgId           String?        @map("org_id")
+  email           String         @unique
+  passwordHash    String?        @map("password_hash")
+  fullName        String         @map("full_name")
+  role            UserRole       @default(STUDENT)
+  studentId       String?        @map("student_id")
+  avatarUrl       String?        @map("avatar_url")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  organization    Organization?  @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  enrollments     ExamEnrollment[]
+  sessions        ExamSession[]
+  reviewDecisions ReviewDecision[]
+  examinerNotes   ExaminerNote[]
+  auditLogs       AuditLog[]
+
+  @@map("users")
+}
+
+model Examination {
+  id                  String           @id @default(uuid())
+  orgId               String?          @map("org_id")
+  title               String
+  description         String?
+  courseCode          String           @map("course_code")
+  durationMinutes     Int              @map("duration_minutes")
+  status              ExamStatus       @default(PUBLISHED)
+  totalMarks          Int              @default(100) @map("total_marks")
+  passingMarks        Int              @default(40) @map("passing_marks")
+  startTime           DateTime?        @map("start_time")
+  endTime             DateTime?        @map("end_time")
+  permittedMaterials  String[]         @default([]) @map("permitted_materials")
+  config              Json             @default("{}")
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+
+  organization        Organization?    @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  enrollments         ExamEnrollment[]
+  sessions            ExamSession[]
+
+  @@map("examinations")
+}
+
+model ExamEnrollment {
+  id          String       @id @default(uuid())
+  examId      String       @map("exam_id")
+  userId      String       @map("user_id")
+  isAuthorized Boolean     @default(true) @map("is_authorized")
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  exam        Examination  @relation(fields: [examId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([examId, userId])
+  @@map("exam_enrollments")
+}
+
+model ExamSession {
+  id                   String            @id @default(uuid())
+  examId               String            @map("exam_id")
+  userId               String            @map("user_id")
+  status               SessionStatus     @default(INITIALIZED)
+  clientIp             String?           @map("client_ip")
+  userAgent            String?           @map("user_agent")
+  cameraVerified       Boolean           @default(false) @map("camera_verified")
+  micVerified          Boolean           @default(false) @map("mic_verified")
+  screenVerified       Boolean           @default(false) @map("screen_verified")
+  heartbeatAt          DateTime?         @map("heartbeat_at")
+  startedAt            DateTime          @default(now()) @map("started_at")
+  endedAt              DateTime?         @map("ended_at")
+  answers              Json              @default("{}")
+  score                Float?
+  totalEventsCount     Int               @default(0) @map("total_events_count")
+  highSeverityCount    Int               @default(0) @map("high_severity_count")
+  createdAt            DateTime          @default(now()) @map("created_at")
+  updatedAt            DateTime          @updatedAt @map("updated_at")
+
+  exam                 Examination       @relation(fields: [examId], references: [id], onDelete: Cascade)
+  user                 User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  events               ProctoringEvent[]
+  reviewDecisions      ReviewDecision[]
+  examinerNotes        ExaminerNote[]
+
+  @@map("exam_sessions")
+}
+
+model ModelVersion {
+  id               String            @id @default(uuid())
+  modelIdentifier  String            @map("model_identifier") // e.g. 'yolo-exam-detector'
+  version          String            // e.g. 'v1.0.0'
+  datasetVersion   String            @map("dataset_version")
+  sourceCheckpoint String?           @map("source_checkpoint")
+  artifactChecksum String?           @map("artifact_checksum")
+  trainingConfig   Json              @map("training_config")
+  evaluationMetrics Json             @map("evaluation_metrics")
+  isActive         Boolean           @default(false) @map("is_active")
+  createdAt        DateTime          @default(now()) @map("created_at")
+
+  events           ProctoringEvent[]
+
+  @@unique([modelIdentifier, version])
+  @@map("model_versions")
+}
+
+model ProctoringEvent {
+  id                 String           @id @default(uuid())
+  sessionId          String           @map("session_id")
+  modelVersionId     String?          @map("model_version_id")
+  eventType          String           @map("event_type")
+  observedAt         DateTime         @default(now()) @map("observed_at")
+  durationMs         Int              @default(0) @map("duration_ms")
+  confidence         Float            @default(0.0)
+  severity           EventSeverity    @default(MEDIUM)
+  reviewStatus       ReviewStatus     @default(PENDING) @map("review_status")
+  metadata           Json             @default("{}")
+  createdAt          DateTime         @default(now()) @map("created_at")
+
+  session            ExamSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  modelVersion       ModelVersion?    @relation(fields: [modelVersionId], references: [id], onDelete: SetNull)
+  evidence           EventEvidence[]
+  reviewDecisions    ReviewDecision[]
+
+  @@index([sessionId, observedAt])
+  @@map("proctoring_events")
+}
+
+model EventEvidence {
+  id               String           @id @default(uuid())
+  eventId          String           @map("event_id")
+  storageKey       String           @map("storage_key")
+  mimeType         String           @default("image/jpeg") @map("mime_type")
+  fileSizeBytes    Int              @map("file_size_bytes")
+  retentionExpires DateTime?        @map("retention_expires")
+  createdAt        DateTime         @default(now()) @map("created_at")
+
+  event            ProctoringEvent  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@map("event_evidence")
+}
+
+model ReviewDecision {
+  id               String           @id @default(uuid())
+  sessionId        String           @map("session_id")
+  eventId          String?          @map("event_id")
+  reviewerId       String           @map("reviewer_id")
+  status           ReviewStatus     @default(REVIEWED)
+  conclusion       String
+  createdAt        DateTime         @default(now()) @map("created_at")
+
+  session          ExamSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  event            ProctoringEvent? @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  reviewer         User             @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+
+  @@map("review_decisions")
+}
+
+model ExaminerNote {
+  id               String           @id @default(uuid())
+  sessionId        String           @map("session_id")
+  examinerId       String           @map("examiner_id")
+  note             String
+  createdAt        DateTime         @default(now()) @map("created_at")
+
+  session          ExamSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  examiner         User             @relation(fields: [examinerId], references: [id], onDelete: Cascade)
+
+  @@map("examiner_notes")
+}
+
+model AuditLog {
+  id               String           @id @default(uuid())
+  actorId          String?          @map("actor_id")
+  action           String
+  resourceType     String           @map("resource_type")
+  resourceId       String?          @map("resource_id")
+  details          Json             @default("{}")
+  ipAddress        String?          @map("ip_address")
+  createdAt        DateTime         @default(now()) @map("created_at")
+
+  actor            User?            @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+}
+
+model SystemSetting {
+  key              String           @id
+  value            Json
+  description      String?
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}
+

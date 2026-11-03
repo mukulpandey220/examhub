@@ -1,0 +1,26 @@
+{
+  "evaluation_timestamp": "2026-10-28T13:14:09Z",
+  "tested_weights": "/Users/srijan/aiproctor/ai/training/artifacts/exam_detector_run/weights/best.pt",
+  "dataset_split": "test (untouched partition)",
+  "duration_sec": 2.01,
+  "metrics": {
+    "precision": 0.1394,
+    "recall": 0.95,
+    "mAP_50": 0.2594,
+    "mAP_50_95": 0.2222,
+    "inference_speed_ms": {
+      "preprocess": 0.7319374999497086,
+      "inference": 60.484078123408835,
+      "loss": 6.250047590583563e-05,
+      "postprocess": 5.8085390610358445
+    }
+  },
+  "classes": {
+    "0": "cell_phone",
+    "1": "book",
+    "2": "paper_notes",
+    "3": "calculator",
+    "4": "secondary_screen"
+  },
+  "non_accusatory_safeguard": "Review signals are advisory; prohibited from automated candidate penalties."
+}

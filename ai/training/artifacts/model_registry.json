@@ -1,0 +1,104 @@
+[
+  {
+    "model_identifier": "yolo-exam-detector",
+    "version": "v1.0.524",
+    "dataset_version": "exam-objects-v1.0",
+    "artifact_path": "/Users/srijan/aiproctor/ai/training/artifacts/exam_detector_run/weights/best.pt",
+    "artifact_checksum": "5f114af7f6ca5f875f0782ce8ef12c8f514596a9e23211fe01fbdbdb9dd4eb99",
+    "training_config": {
+      "base_model": "/Users/srijan/aiproctor/ai/training/artifacts/yolov8n.pt",
+      "epochs": 2,
+      "device": "mps"
+    },
+    "evaluation_metrics": {
+      "train_duration_sec": 35.52,
+      "device": "mps",
+      "epochs": 2,
+      "batch_size": 4,
+      "img_size": 640
+    },
+    "registered_at": 1793189524.532747,
+    "registered_at_iso": "2026-10-28T12:12:04Z",
+    "status": "archived"
+  },
+  {
+    "model_identifier": "yolo-exam-detector",
+    "version": "v1.0.213",
+    "dataset_version": "exam-objects-v1.0",
+    "artifact_path": "/Users/srijan/aiproctor/ai/training/artifacts/exam_detector_run/weights/best.pt",
+    "artifact_checksum": "047c329b0195c9db7fe60ddb061bde92bd4a9d5e826cf7f4218966e38e4d3fc6",
+    "training_config": {
+      "base_model": "/Users/srijan/aiproctor/ai/training/artifacts/yolov8n.pt",
+      "epochs": 2,
+      "device": "mps"
+    },
+    "evaluation_metrics": {
+      "train_duration_sec": 29.67,
+      "device": "mps",
+      "epochs": 2,
+      "batch_size": 4,
+      "img_size": 640
+    },
+    "registered_at": 1793193213.86353,
+    "registered_at_iso": "2026-10-28T13:13:33Z",
+    "status": "archived"
+  },
+  {
+    "model_identifier": "hf-yolo-exam-detector",
+    "version": "v1.1.84",
+    "dataset_version": "exam-objects-v1.0",
+    "artifact_path": "/Users/srijan/aiproctor/ai/training/artifacts/hf_bundle/best.pt",
+    "artifact_checksum": "dfd9b09b4fbaccd62ea603434ad51f86b2f659e20bcaf2d190ad1d9644db2144",
+    "training_config": {
+      "hf_source": "kadirnar/yolov8n-v8.0",
+      "device": "mps",
+      "epochs": 2,
+      "published_url": "https://huggingface.co/srijannn/aiproctor-yolo-detector"
+    },
+    "evaluation_metrics": {
+      "precision": 0.139,
+      "recall": 0.95,
+      "mAP_50": 0.259,
+      "mAP_50_95": 0.222,
+      "train_duration_sec": 16.08,
+      "inference_ms": 60.5
+    },
+    "registered_at": 1793194084.191509,
+    "registered_at_iso": "2026-10-28T13:28:04Z",
+    "status": "active"
+  },
+  {
+    "model_identifier": "yolo-exam-detector",
+    "version": "v2.0.758",
+    "dataset_version": "enriched-exam-objects-v2.0",
+    "artifact_path": "/Users/srijan/aiproctor/ai/training/artifacts/hf_bundle/best.pt",
+    "artifact_checksum": "121e426659d1e133163676cb98b88ca93a3fb157c30c94bfe70f4fbd141397da",
+    "training_config": {
+      "base_checkpoint": "/Users/srijan/.cache/huggingface/hub/models--Ultralytics--YOLO11/snapshots/8b8ac7d1fae7468f85dbf89670dd66f41f485aab/yolo11n.pt",
+      "epochs": 2,
+      "device": "mps"
+    },
+    "evaluation_metrics": {
+      "model_architecture": "YOLO11-nano / YOLOv8-hybrid",
+      "source": "Hugging Face Hub (Ultralytics)",
+      "training_duration_sec": 23.52,
+      "device": "mps",
+      "epochs": 2,
+      "mAP_50": 0.2156,
+      "precision": 0.45,
+      "recall": 0.125,
+      "classes": [
+        "cell_phone",
+        "smartwatch",
+        "book",
+        "paper_notes",
+        "earphones_headset",
+        "secondary_screen"
+      ],
+      "trained_at": "2026-10-30T07:02:38Z"
+    },
+    "registered_at": 1793343758.6236129,
+    "registered_at_iso": "2026-10-30T07:02:38Z",
+    "status": "active"
+  }
+]
