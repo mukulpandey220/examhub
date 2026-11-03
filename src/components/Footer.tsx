@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React from "react";
 import Link from "next/link";
@@ -41,7 +41,37 @@ export function Footer() {
           {COLUMNS.map((column) => <div key={column.title} className="footer-column"><h3>{column.title}</h3><ul>{column.links.map((link) => <li key={link.href}><Link href={link.href}>{link.label}</Link></li>)}</ul></div>)}
         </div>
         <div className="footer-bottom"><p>© {new Date().getFullYear()} Nyeras Nxtmove. All rights reserved.</p><p>Learn. Benchmark. Move forward.</p></div>
-        <div className="footer-wordmark" aria-hidden="true">{"NXTMOVE".split("").map((letter, i) => <span key={i}>{letter}</span>)}</div>
+        <div className="footer-wordmark" aria-hidden="true">
+          <svg
+            viewBox="0 0 960 170"
+            className="w-full h-auto select-none overflow-visible"
+            preserveAspectRatio="xMidYMid meet"
+          >
+            <text
+              x="50%"
+              y="54%"
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill="currentColor"
+              className="font-extrabold text-white"
+              style={{
+                fontSize: "152px",
+                fontWeight: 800,
+                letterSpacing: "-0.03em",
+                fontFamily: "var(--font-sans), Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+              }}
+            >
+              {"NXTMOVE".split("").map((letter, i) => (
+                <tspan
+                  key={i}
+                  className="transition-colors duration-200 hover:fill-blue-500 cursor-default"
+                >
+                  {letter}
+                </tspan>
+              ))}
+            </text>
+          </svg>
+        </div>
       </div>
     </footer>
   );
