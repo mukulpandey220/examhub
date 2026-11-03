@@ -77,7 +77,7 @@
     position: absolute;
     inset: 0;
     pointer-events: none;
-    background: radial-gradient(420px circle at var(--mx, 20%) var(--my, 0%), rgba(37,99,235,.18), transparent 42%);
+    background: radial-gradient(420px circle at var(--mx, 20%) var(--my, 0%), rgba(255, 255, 255, 0.04), transparent 42%);
     opacity: 0;
     transition: opacity .25s;
   }
@@ -135,25 +135,20 @@
   .section-title { @apply text-2xl font-semibold tracking-tight text-slate-900 sm:text-4xl; }
   .num { font-variant-numeric: tabular-nums; letter-spacing: -.035em; }
 
-  /* Interactive Background Grid System - blended textures and smooth feathered mask */
+  /* Atmospheric Background Grid System - deeply blurred with no cursor highlight color */
   .bg-grid-blurred {
     background-image:
       linear-gradient(var(--grid-line-blur) 1px, transparent 1px),
       linear-gradient(90deg, var(--grid-line-blur) 1px, transparent 1px);
-    background-size: 24px 24px;
-    filter: blur(1.2px);
-    opacity: 0.78;
+    background-size: 28px 28px;
+    filter: blur(3.8px);
+    opacity: 0.62;
   }
   .bg-grid-sharp {
-    background-image:
-      linear-gradient(var(--grid-line-sharp) 1px, transparent 1px),
-      linear-gradient(90deg, var(--grid-line-sharp) 1px, transparent 1px);
-    background-size: 24px 24px;
-    mask-image: radial-gradient(460px circle at var(--cursor-x, -999px) var(--cursor-y, -999px), black 0%, rgba(0, 0, 0, 0.72) 28%, rgba(0, 0, 0, 0.22) 62%, transparent 100%);
-    -webkit-mask-image: radial-gradient(460px circle at var(--cursor-x, -999px) var(--cursor-y, -999px), black 0%, rgba(0, 0, 0, 0.72) 28%, rgba(0, 0, 0, 0.22) 62%, transparent 100%);
+    display: none;
   }
   .bg-grid-spotlight {
-    background: radial-gradient(440px circle at var(--cursor-x, -999px) var(--cursor-y, -999px), rgba(37, 99, 235, 0.12) 0%, var(--grid-spotlight) 42%, transparent 75%);
+    display: none;
   }
 }
 /* Full-width site chrome. Content aligns with the page, backgrounds reach both edges. */
