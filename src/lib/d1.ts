@@ -191,4 +191,101 @@ export async function getProctoringIncidents(filters?: {
   return queryD1(sql, params);
 }
 
+/**
+ * Retrieves a user record from D1 by email address
+ */
+export async function getD1UserByEmail(email: string): Promise<any | null> {
+  const users = await queryD1(`SELECT * FROM users WHERE email = ? LIMIT 1`, [email]);
+  return users.length > 0 ? users[0] : null;
+}
+
+/**
+ * Upserts a user record into D1
+ */
+export async function saveD1User(user: {
+  id: string;
+  email: string;
+  name: string;
+  passwordHash: string;
+  role?: string;
+  university?: string;
+  courseDegree?: string;
+  branch?: string;
+  semester?: number;
+  tokens?: number;
+}): Promise<boolean> {
+  const sql = `
+    INSERT OR REPLACE INTO users (
+      id, email, name, password_hash, role, university, course_degree, branch, semester, tokens
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+  const params = [
+    user.id,
+    user.email,
+    user.name,
+    user.passwordHash,
+    user.role || "student",
+    user.university || null,
+    user.courseDegree || null,
+    user.branch || null,
+    user.semester ?? 7,
+    user.tokens ?? 100,
+  ];
+  const res = await executeD1(sql, params);
+  return res.success;
+}
+
+/**
+ * Retrieves an exam attempt from D1 by attempt ID
+ */
+export async function getD1AttemptById(attemptId: string): Promise<any | null> {
+  const attempts = await queryD1(`SELECT * FROM attempts WHERE id = ? LIMIT 1`, [attemptId]);
+  return attempts.length > 0 ? attempts[0] : null;
+}
+
+/**
+ * Upserts an exam attempt record into D1
+ */
+export async function saveD1Attempt(attempt: {
+  id: string;
+  examId: string;
+  examTitle: string;
+  domainSlug: string;
+  userId: string;
+  userEmail: string;
+  userName: string;
+  startedAt: string;
+  expiresAt: string;
+  status: string;
+  score?: number;
+  maxScore?: number;
+  percentage?: number;
+  passed?: boolean;
+}): Promise<boolean> {
+  const sql = `
+    INSERT OR REPLACE INTO attempts (
+      id, exam_id, exam_title, domain_slug, user_id, user_email, user_name,
+      started_at, expires_at, status, score, max_score, percentage, passed
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+  const params = [
+    attempt.id,
+    attempt.examId,
+    attempt.examTitle,
+    attempt.domainSlug,
+    attempt.userId,
+    attempt.userEmail,
+    attempt.userName,
+    attempt.startedAt,
+    attempt.expiresAt,
+    attempt.status,
+    attempt.score ?? null,
+    attempt.maxScore ?? null,
+    attempt.percentage ?? null,
+    attempt.passed ? 1 : 0,
+  ];
+  const res = await executeD1(sql, params);
+  return res.success;
+}
+
 
